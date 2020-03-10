@@ -1,3 +1,0 @@
-ftn -c ./PES_H2OHe/PES_H2OHe.f;
-mv PES_H2OHe.o ./PES_H2OHe/PES_H2OHe.o;
-mv *.mod ./PES_H2OHe/;
