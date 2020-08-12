@@ -22,7 +22,7 @@ Program architecture:
 Compiling and running the code:
 	User supplied subroutine for the PES should be compiled first, to create an object file, for example PES_H2O+He.o. It should be copied into (or linked to) the main program directory /MQCT_v1.01. The MQCT code itself is compiled independently from the PES to create the object file head.o, and then is linked with the desired PES to create an executable file.
 	Examples of this procedure are given in the files ./comp_MQCT and ./link_ALL. These can be executed as commands, after changing access: 
- > chmod +x ./comp_PES ./comp_MQCT ./link_ALL
+ $ chmod +x ./comp_PES ./comp_MQCT ./link_ALL
  > ./comp_PES 
  > ./comp_MQCT 
  > ./link_ALL
