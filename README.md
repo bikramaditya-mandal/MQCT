@@ -1,7 +1,7 @@
-MQCT v1.01
+# MQCT v1.01
 
 
-Description:
+## Description:
 	A program named MQCT is developed for calculations of rotationally and vibrationally inelastic scattering of molecules using the mixed quantum/classical theory approach. Calculations of collisions between two general asymmetric top rotors are now possible, which is a feature unavailable in other existing codes. Vibrational states of diatomic molecules can also be included in the basis set expansion, to carry out calculations of ro-vibrational excitation and quenching.
 
 Program architecture:
