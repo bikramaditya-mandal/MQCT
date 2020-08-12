@@ -8,17 +8,29 @@ A program named MQCT is developed for calculations of rotationally and vibration
 ## Program architecture:
 
 The actual program includes 12 individual files: head.f, propagator.f, iotest.f, mqct_eqtns.f, print_output.f, suppl_routines.f, matrix_ini.f, pot_comp.f, pes_sys_type.f, basis_wave_functions.f, asym_top.f, and vib_diatomic.f. The description of each files is as follows.
+
 **head.f**: Uses MPI to parallelize calculations and communicates between other files.
+
 **propagator.f**: Propagates the collision trajectories for classical degrees of freedom.
+
 **iotest.f**: Contains all global and local variables and the parser of input.
+
 **mqct_eqtns.f**: Propagates the equations of motion for quantum degrees of freedom.
+
 **print_output.f**: Prints the output files with the results of calculations.
+
 **suppl_routines.f**: Contains several subroutines from Numerical Recipes.
+
 **matrix_ini.f**: Computes elements of the state-to-state transition matrix.
+
 **pot_comp.f**: Incorporates the potential energy surface for calculations.
+
 **pes_sys_type.f**: Executes PES subroutines for various systems.
+
 **basis_wave_functions.f**: Computes wave functions for diatoms and symmetric tops.
+
 **asym_top.f**: Computes wave function for asymmetric top rotor systems.
+
 **vib_diatomic.f**: Computes vibrational wave functions for diatomic systems.
 
 Compiling and running the code:
