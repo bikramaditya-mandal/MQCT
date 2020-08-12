@@ -38,7 +38,7 @@ User supplied subroutine for the PES should be compiled first, to create an obje
 
 Examples of this procedure are given in the files ./comp_MQCT and ./link_ALL. These can be executed as commands, after changing access: 
 
-$ chmod +x ./comp_PES ./comp_MQCT ./link_ALL
+> chmod +x ./comp_PES ./comp_MQCT ./link_ALL
 
 > ./comp_PES 
 
