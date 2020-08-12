@@ -1,0 +1,1 @@
+ftn -g -traceback -o mqct_exe ./MQCT_v1.01/head.o ./PES_H2OH2/PESH2OH2.o

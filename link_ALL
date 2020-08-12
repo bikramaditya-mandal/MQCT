@@ -1,0 +1,1 @@
+ftn -o mqct_exe ./MQCT_v1.01/head.o ./PES_H2OHe/PES_H2OHe.o
