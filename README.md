@@ -51,10 +51,12 @@ chmod +x ./comp_PES ./comp_MQCT ./link_ALL
 SAVE_MTRX=YES, PROG_RUN=NO
 
 Then the program is run again to read the transition matrix (computed previously) and perform massively parallel trajectory calculations using large number of processors. Keywords required for this are:
-READ_MTRX=YES, PROG_RUN=YES
-This approach is also convenient when multiple calculations are needed with different input parameters (such as collision energy, initial state, number of trajectories, time step, etc.) but with the same basis set, which determines the matrix size. Clearly, the matrix must be computed only once, can be saved in the file and then reused later as many times as needed. The file name is MTRX_UF.dat for the binary form (unformatted) and is MTRX.dat for the formatted option of the matrix. Note that all intermediate data files created or used by in the code have extension *.dat. For description of other options, available for the expert calculations, please refer to the user guide.
 
-Understanding the output:
-	All output files have extension *.out. System setup is written into the file USER_INPUT_CHECK.out and should be checked by user for correctness. The file STATES.out (written if the option PRNT_STATES=YES is chosen) contains the list of all quantum states involved in calculations, including the channel number, the values of j12 and m12, and the assigned quantum numbers. Major results are found in CROSS_SECTIONS.out. Other problem-specific output files are discussed in the main text of the article. 
+READ_MTRX=YES, PROG_RUN=YES
+
+This approach is also convenient when multiple calculations are needed with different input parameters (such as collision energy, initial state, number of trajectories, time step, etc.) but with the same basis set, which determines the matrix size. Clearly, the matrix must be computed only once, can be saved in the file and then reused later as many times as needed. The file name is MTRX_UF.dat for the binary form (unformatted) and is MTRX.dat for the formatted option of the matrix. Note that all intermediate data files created or used by in the code have extension * *.* dat. For description of other options, available for the expert calculations, please refer to the user guide.
+
+## Understanding the output:
+All output files have extension *.out. System setup is written into the file USER_INPUT_CHECK.out and should be checked by user for correctness. The file STATES.out (written if the option PRNT_STATES=YES is chosen) contains the list of all quantum states involved in calculations, including the channel number, the values of j12 and m12, and the assigned quantum numbers. Major results are found in CROSS_SECTIONS.out. Other problem-specific output files are discussed in the main text of the article. 
 
 
