@@ -38,13 +38,13 @@ User supplied subroutine for the PES should be compiled first, to create an obje
 
 Examples of this procedure are given in the files ./comp_MQCT and ./link_ALL. These can be executed as commands, after changing access: 
 
-chmod +x ./comp_PES ./comp_MQCT ./link_ALL
+`chmod +x ./comp_PES ./comp_MQCT ./link_ALL`
 
-./comp_PES 
+`./comp_PES` 
 
-./comp_MQCT 
+`./comp_MQCT` 
 
-./link_ALL
+`./link_ALL`
 
 **Input file** for MQCT should have the extension * *.* inp, and its name should be placed in the file INPUT_NAME.inp. This permits user to store multiple input files (e.g., for different molecules) in the program directory, but run actual calculations with one specific input file. There are two general ways of running the code. In the straightforward approach, which is also the default, the program computes elements of the state-to-state transition matrix and then propagates trajectories for collisions, all in a single run. In the optional two-step approach, which we recommend following, the program is run first with small number of processors to compute transition matrix, save it into the file and stop (without doing the calculations of collision). This is done by indicating the following optional keywords:
 
