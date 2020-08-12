@@ -3,12 +3,9 @@
 
 ## Description:
 
-A program named MQCT is developed for calculations of rotationally and vibrationally inelastic scattering of molecules 
-using the mixed quantum/classical theory approach. Calculations of collisions between two general asymmetric top rotors 
-are now possible, which is a feature unavailable in other existing codes. Vibrational states of diatomic molecules can 
-also be included in the basis set expansion, to carry out calculations of ro-vibrational excitation and quenching.
+A program named MQCT is developed for calculations of rotationally and vibrationally inelastic scattering of molecules using the mixed quantum/classical theory approach. Calculations of collisions between two general asymmetric top rotors are now possible, which is a feature unavailable in other existing codes. Vibrational states of diatomic molecules can also be included in the basis set expansion, to carry out calculations of ro-vibrational excitation and quenching.
 
-##Program architecture:
+## Program architecture:
 
 The actual program includes 12 individual files: head.f, propagator.f, iotest.f, mqct_eqtns.f, print_output.f, 
 suppl_routines.f, matrix_ini.f, pot_comp.f, pes_sys_type.f, basis_wave_functions.f, asym_top.f, and vib_diatomic.f. 
