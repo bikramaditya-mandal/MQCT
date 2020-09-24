@@ -34,7 +34,7 @@ This approach is also convenient when multiple calculations are needed with diff
 All output files have extension * *.* out. System setup is written into the file USER_INPUT_CHECK.out and should be checked by user for correctness. The file STATES.out (written if the option PRNT_STATES=YES is chosen) contains the list of all quantum states involved in calculations, including the channel number, the values of *j12* and *m12*, and the assigned quantum numbers. Major results are found in CROSS_SECTIONS.out. Other problem-specific output files are discussed in the main text of the article. 
 
 ## NOTE:
-For description of other options, available for the expert calculations, please refer to the PDF file **MQCT USER GUIDE.pdf** [manual] (MQCT_USER_GUIDE.pdf) available in the root directory. For citing the code, please refer to the article associated with the code as **MQCT.pdf** in the root directory or see it at [the journal webpage](https://doi.org/10.1016/j.cpc.2020.107155).
+For description of other options, available for the expert calculations, please refer to the PDF file **MQCT USER GUIDE.pdf** [manual](./MQCT_USER_GUIDE.pdf) available in the root directory. For citing the code, please refer to the article associated with the code as **MQCT.pdf** in the root directory or see it at [the journal webpage](https://doi.org/10.1016/j.cpc.2020.107155).
 
 ## Program architecture:
 
