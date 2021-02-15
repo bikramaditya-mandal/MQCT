@@ -2,7 +2,7 @@
 
 ## NOTE:
 
-This Branch **v20_21_beta** is an ongoing development project for an approximate method within MQCT framework. For description (including an User Manual) of the first release, please refer to the **Master** directory.
+This Branch **v20_21_beta** is an ongoing development project for an approximate method within MQCT framework. For description (including an User Manual) of the first release, please refer to the **Master** branch.
 
 ## Description of AT-MQCT:
 
