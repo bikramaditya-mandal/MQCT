@@ -1,3 +1,0 @@
-ftn -c ./MQCT_v1.01/head.f;
-mv head.o ./MQCT_v1.01/head.o;
-mv *.mod ./MQCT_v1.01/;
