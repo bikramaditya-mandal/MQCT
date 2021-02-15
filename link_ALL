@@ -1,1 +1,1 @@
-ftn -o mqct_20_21 -g -traceback ./MQCT_v20_21/head.o ./PES_H2OH2O/PES_H2OH2O.o
+ftn -o mqct_exe ./MQCT_v1.01/head.o ./PES_H2OHe/PES_H2OHe.o
