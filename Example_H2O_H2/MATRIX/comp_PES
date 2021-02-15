@@ -1,3 +1,0 @@
-ftn -c ./PES_H2OH2/PESH2OH2.f;
-mv PESH2OH2.o ./PES_H2OH2/PESH2OH2.o;
-mv ini_pesh2oh2.mod ./PES_H2OH2/ini_pesh2oh2.mod
