@@ -1,5 +1,5 @@
       MODULE INTEGRATOR !! CONTAINS VARIABLES FOR PROPAGATION
-! This module is written by Alexander Semenov
+! This module is written by Alexander Semenov and modified by Bikramaditya Mandal
       IMPLICIT NONE
       LOGICAL :: INTERUPT_PROPAGATION = .FALSE.
       LOGICAL :: term_pot_defined = .FALSE.
