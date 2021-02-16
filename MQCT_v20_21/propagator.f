@@ -3959,7 +3959,7 @@ c      PRINT*,	"dJ_int_range", dJ_int_range
 	  bk_num_ini_states = indx_corr_id(p_lim_max,m_t + j_t+1,
      & j_t+1,chann_ini)
 	  else
-	  bk_num_ini_states = indx_corr_id(p_cur,m_t + j_t+1,
+	  bk_num_ini_states = indx_corr(m_t + j_t+1,
      & j_t+1,chann_ini)
 	 end if
       num_ini_states = bk_num_ini_states - i	+ 1

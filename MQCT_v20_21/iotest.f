@@ -2852,7 +2852,7 @@ c      PRINT*,time_lim
       CHARACTER(LEN=9):: bikram_theta_word="SPIN_ROT="       !CASE(38)		!Bikram
       CHARACTER(LEN=9):: bikram_traj_print="BK_PRINT="       !CASE(39)		!Bikram
       CHARACTER(LEN=13):: bikram_nrg_err="ENERGY_ERROR="       !CASE(40)		!Bikram
-      CHARACTER(LEN=12):: bikram_step_size="BIKRAM_STEP="       !CASE(41)		!Bikram
+      CHARACTER(LEN=13):: bikram_step_size="AT_ADAPT_STP="       !CASE(41)		!Bikram
       CHARACTER(LEN=10) :: num_of_stps_rk4_adia="NMB_STEPS="        !CASE(42)	!Bikram
       CHARACTER(LEN=8) :: rk4_tol_adia="RK4_TOL="                 !CASE(43)		!Bikram
       CHARACTER(LEN=1) buffer
