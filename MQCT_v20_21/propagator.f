@@ -131,7 +131,16 @@
       INTEGER, ALLOCATABLE :: ind_cs_rule(:,:)	  
       LOGICAL, ALLOCATABLE :: integrator_flag(:)
       END MODULE CS_MATRIX		  
-      SUBROUTINE PROPAGATE
+      
+	  module bk_l_values
+! This module is written by Bikramaditya Mandal, Feb 2021
+	  implicit none
+	  integer chk_par, postv_par, negtv_par, delta_l_lr, l_switch_bk
+	  integer l_range1, l_range2
+	  logical transfer_prob_spln
+	  end module
+	  
+	  SUBROUTINE PROPAGATE
 ! This subroutine is written by Alexander Semenov and modified by Bikramaditya Mandal
       USE VARIABLES
       USE CONSTANTS
@@ -141,6 +150,7 @@
       USE MPI
       USE ERRORS	  
       USE MONTE_CARLO_STORAGE	  
+	  use bk_l_values												!Bikram Feb 2021
 	  use iso_fortran_env,only:output_unit
       IMPLICIT NONE
       LOGICAL sampl_succ	  
@@ -196,6 +206,8 @@
       ALLOCATE(err_traj_max_prb(nmbr_of_enrgs))
       ALLOCATE( monte_carlo_err(number_of_channels,nmbr_of_enrgs))
 	  if_l=.false.			!Bikram
+	  transfer_prob_spln = .false.
+	  if(bk_prob_interpolation) transfer_prob_spln = .true.
 
       ERROR_INDEX_ENERGY = 0d0	  
 !!! SETTING UP INTITAL CONDIONS	
@@ -371,6 +383,27 @@
 !!!!! TOTAL NUMBER OF TRAJECTORIES      
       tot_number_of_traject = 
      & (L_MAX_TRAJECT - L_MIN_TRAJECT)/delta_l_step + 1
+
+! Bikram Start Feb 2021: This is related to switching the delta_L values in two regions
+	  l_switch_bk = -100d0
+	  if(bk_b_switch.gt.0.d0) then
+	  l_switch_bk = int(bk_b_switch*sqrt(massAB_M*2d0*E_sct))
+	  if(myid.eq.0) write(*,'(a,f0.3,a,i0)') 
+     & 'B_SWITCH INDICATED, VALUE = ', 
+     & bk_b_switch, ' CALCULATED VALUE OF L TO SWITCH = ', l_switch_bk
+	  delta_l_lr = bk_dl_lr
+	  
+	  l_range1 = (l_switch_bk - L_MIN_TRAJECT)/delta_l_step + 1
+	  l_range2 = (L_MAX_TRAJECT - l_switch_bk)/delta_l_lr + 1
+	  if(myid.eq.0) write(*,'(a,i0)') 
+     & '#TRAJECTORIES IN SHORT RANGE = ', l_range1
+	  if(myid.eq.0) write(*,'(a,i0)') 
+     & '#TRAJECTORIES IN LONG RANGE = ', l_range2
+	  
+	  tot_number_of_traject = l_range1 + l_range2
+	  end if
+! Bikram End.
+
 !!!   NUMBER OF TRAJECTORIES PER MPI TASK	  
       IF(mpi_task_defined) THEN	  
       n_traject_alloc = int(tot_number_of_traject/(nproc/mpi_traject))+1
@@ -520,7 +553,7 @@
 !3247      l_scatter(itraject,id_proc) = (l_counter-1)*delta_l_step+
 !     & L_MIN_TRAJECT
 !! TESTING	 
-      IF(myid.eq.-5) THEN
+      IF(myid.eq.-4) THEN
       WRITE(*,*) l_scatter(itraject,id_proc),id_proc	  
       ENDIF
 !! TESTING	ASSIGNEMET  
@@ -920,6 +953,7 @@ c      PRINT*, "GATHER DONE ENDED"
      &  MPI_COMM_WORLD,ierr_mpi)
 !	  print*, myid, 'bk_errp_done'   
 !      CALL MPI_BARRIER( MPI_COMM_WORLD, ierr_mpi )	  
+!	  print *, 'gathered', myid
 ! Bikram End
 	 
 c	 !!! EROR
@@ -978,7 +1012,7 @@ c	 !!! EROR
       IF(calc_elast_defined .and. SPIN_FINE.ne.2) !!! RIGHT NOW FOR SPIN 1/2 NOT COMPUTE ELASTIC
      & CALL ELAST_CALC(sigma_elast(s_st),ang_res_elast, !! CALC ELAST CROSS SECTION
      & deflect_fun_defined,diff_cross_defined,number_of_channels)
-!     & print *, 'change here, take a look'
+!       print *, myid, 'exited'
 !      sigma_elast = 0d0
       IF(fine_structure_defined .and. SPIN_FINE.eq.2) THEN
       IF(MYID.eq.0) CALL INELAST_CALC_FINE(sigma, !!! CALC INELASTIC CROSS SECTION
@@ -1052,6 +1086,9 @@ c	 !!! EROR
      & sigma(i)*2d0/(1d0+delta(m_t,0))
      & /((j_max_ind(chann_ini)+j_min_ind(chann_ini)+1d0)  
      & *(j_max_ind(chann_ini)-j_min_ind(chann_ini)+1d0))
+!	  if(myid.eq.0) then
+!	  print *,i,j_max_ind(chann_ini),j_min_ind(chann_ini)
+!	  end if
       ENDDO
       ENDIF	  
       ENDIF	  
@@ -3069,6 +3106,7 @@ c      PRINT*,	"dJ_int_range", dJ_int_range
       USE INTEGRATOR
       USE MPI_DATA
       USE MPI_TASK_TRAJECT	  
+	  use bk_l_values												!Bikram Feb 2021
       IMPLICIT NONE
       LOGICAL EVEN_NUM	  
       LOGICAL, ALLOCATABLE :: nproc_actual(:)	  
@@ -3080,19 +3118,25 @@ c      PRINT*,	"dJ_int_range", dJ_int_range
       REAL*8, PARAMETER :: conv_E_cm_Ev = 27.21113845d0*8065.5448d0	  
       REAL*8, ALLOCATABLE :: j_def(:),opac_chann_all(:,:)
       REAL*8 posit_imp,negat_imp,part_cross	  
+	  
+	  real*8, allocatable :: bk_l_tmp(:)
+	  integer tmp_l
+	  real*8, allocatable :: bk_prob1(:,:), spln_der(:,:)
+	  real*8 spln_yp1, spln_yp2, spln_yp, prob_reslt
+	  
       tot_num_of_traj_actual = J_UP_INT-J_DOWN_INT+1	  
       ALLOCATE(j_def(tot_num_of_traj_actual),
      & opac_chann_all(nchann,tot_num_of_traj_actual))
+	  	  
       opac_chann_all = 0d0	 
       sigma_el = 0d0
       DO k=1,nchann	  
       DO j_int_traj = J_DOWN_INT,J_UP_INT
       traj_works = j_int_traj - J_DOWN_INT + 1	  
       DO l_int_traj = abs(j_int_traj-j_int_ini),j_int_traj+j_int_ini
-      IF(myid.eq.0) THEN	  
-!      WRITE(*,*) 'j_int_traj',j_int_traj
-!      WRITE(*,*) 'l_int_traj',l_int_traj
+      IF(myid.eq.0) THEN
       ENDIF
+	  
 !      GOTO 3456
       CALL TRAJ_ORB(l_int_traj,
      & id_traject,
@@ -3100,14 +3144,12 @@ c      PRINT*,	"dJ_int_range", dJ_int_range
      & dl_step_integ,
      & ident_skip,
      & L_MIN_TRAJECT)
+	 
 !3456      id_traject = (l_int_traj-L_MIN_TRAJECT)/dl_step_integ+1
-!	  if(abs(itraj_myid_l(1,id_traject)).gt.1) 
-!     & itraj_myid_l(1,id_traject) = 1
-!	  if(abs(itraj_myid_l(2,id_traject)).gt.0) 
-!     & itraj_myid_l(2,id_traject) = 0
       i_traj = itraj_myid_l(1,id_traject)	  
       i_ip = itraj_myid_l(2,id_traject)
 !      GOTO	5782  
+
       IF(ident_skip) THEN
       IF(parity_st.eq.1) THEN 
       posit_imp = exchange_ident
@@ -3117,14 +3159,17 @@ c      PRINT*,	"dJ_int_range", dJ_int_range
       negat_imp = exchange_ident	  
       ENDIF	  
       ENDIF	  
-!      WRITE(*,*) 'i_ip',i_ip
-!      WRITE(*,*) 'i_traj',i_traj	  
+	  
       id_proc = i_ip*mpi_traject
-!      WRITE(*,*) 'id_proc',id_proc
       part_cross =
      & probab_J_all(k,i_traj,id_proc+1)*(2d0*j_int_traj+1d0)/k_vec**2/
      & (2d0*j_int_ini+1)
+	  
+!	  write(*,'(i0,1x,i0,1x,i0,1x,i0,1x,i0,1x,i0,1x,i0,1x,f12.5,1x,
+!     & f12.5)')k,j_int_traj, J_DOWN_INT,J_UP_INT,l_int_traj,j_int_ini, 
+!     & id_traject,probab_J_all(k,i_traj,id_proc+1), part_cross
 !      GOTO 2356
+
       IF(ident_skip) THEN
       IF(EVEN_NUM(l_int_traj)) THEN 
       part_cross = 	part_cross*posit_imp
@@ -3141,11 +3186,11 @@ c      PRINT*,	"dJ_int_range", dJ_int_range
       j_def(traj_works) = j_int_traj
       ENDDO	  
       ENDDO
-      ENDDO	  
+      ENDDO
 	  
 
       IF(myid.eq.0) THEN
-      OPEN(2,FILE="OPACITY_FUNCTIONS_J.out",POSiTION="APPEND") !!! CHECPOINT RENEWAL
+      OPEN(2,FILE="PARTIAL_CROSS_SECTIONS_J.out",POSiTION="APPEND") !!! CHECPOINT RENEWAL
       WRITE(2,'(a,i0)') "STATE= ", s_st
       WRITE(2,'(a,i0)') "j12= ",j12_s_st	  
       WRITE(2,'(a,i0)') "m12= ",m12_s_st	  
@@ -3185,7 +3230,97 @@ c      PRINT*,	"dJ_int_range", dJ_int_range
       opacity
      & (:,1:tot_num_of_traj_actual,i_ener) = 
      & opac_chann_all(:,:) 
-      DEALLOCATE(opac_chann_all,j_def)	 
+	  
+	  DEALLOCATE(opac_chann_all,j_def)	 
+	  
+! Bikram Start, Feb 2021:
+	  if(transfer_prob_spln) then
+	  if(.not. allocated(bk_prob1))
+     & allocate(bk_prob1(nchann,tot_number_of_traject))
+	  if(.not. allocated(bk_l_tmp))
+     & allocate(bk_l_tmp(tot_number_of_traject))
+	  if(.not. allocated(spln_der))
+     & allocate(spln_der(nchann,tot_number_of_traject))
+	  
+      DO l_int_traj = L_MIN_TRAJECT,L_MAX_TRAJECT
+	  
+      CALL TRAJ_ORB(l_int_traj,
+     & id_traject,
+     & 1,
+     & dl_step_integ,
+     & ident_skip,
+     & L_MIN_TRAJECT)
+	 
+      i_traj = itraj_myid_l(1,id_traject)	  
+      i_ip = itraj_myid_l(2,id_traject)
+      id_proc = i_ip*mpi_traject 
+	  
+	  CALL TRAJ_ORB(tmp_l,
+     & id_traject,
+     & -1,
+     & dl_step_integ,
+     & ident_skip,
+     & L_MIN_TRAJECT)
+	  
+	  bk_prob1(:,id_traject) = probab_J_all(:,i_traj,id_proc+1)
+	  bk_l_tmp(id_traject) = tmp_l*1.d0
+	 
+      ENDDO
+	  
+	  if(tot_number_of_traject.ne.size(bk_l_tmp)) then
+      print*, 'Size Error in the Inelastic Probability Interpolation'
+	  stop
+	  end if
+	  
+	  do k = 1, nchann
+	  spln_yp1=(bk_prob1(k,2)-bk_prob1(k,1))/(bk_l_tmp(2)-bk_l_tmp(1))
+	  spln_yp2=(bk_prob1(k,tot_number_of_traject)-
+     & bk_prob1(k,tot_number_of_traject-1))/
+     & (bk_l_tmp(tot_number_of_traject)-
+     & bk_l_tmp(tot_number_of_traject-1))
+	  call spline(bk_l_tmp,bk_prob1(k,:),tot_number_of_traject,
+     & spln_yp1,spln_yp2,spln_der(k,:))
+	  end do
+	  
+      sigma_el = 0d0
+      DO k=1,nchann	  
+      DO j_int_traj = J_DOWN_INT,J_UP_INT
+      DO l_int_traj = abs(j_int_traj-j_int_ini),j_int_traj+j_int_ini
+
+      IF(ident_skip) THEN
+      IF(parity_st.eq.1) THEN 
+      posit_imp = exchange_ident
+      negat_imp = 1d0 - exchange_ident	  
+      ELSE
+      posit_imp = 1d0 - exchange_ident	
+      negat_imp = exchange_ident	  
+      ENDIF	  
+      ENDIF	  
+	  
+	  call splint(bk_l_tmp,bk_prob1(k,:),spln_der(k,:),
+     & tot_number_of_traject,l_int_traj*1.d0,prob_reslt,spln_yp)
+	  
+      part_cross =
+     & prob_reslt*(2d0*j_int_traj+1d0)/k_vec**2/(2d0*j_int_ini+1)
+
+      IF(ident_skip) THEN
+      IF(EVEN_NUM(l_int_traj)) THEN 
+      part_cross = 	part_cross*posit_imp
+      ELSE
+      part_cross = 	part_cross*negat_imp	  
+      ENDIF	  
+      ENDIF
+      sigma_el(k) = sigma_el(k) +  part_cross     
+
+      ENDDO	  
+      ENDDO
+      ENDDO	  
+	  if(allocated(bk_prob1)) deallocate(bk_prob1)
+	  if(allocated(bk_l_tmp)) deallocate(bk_l_tmp)
+	  if(allocated(spln_der)) deallocate(spln_der)
+	  end if
+! Bikram End.
+	  
       END SUBROUTINE INELAST_CALC
 	  
       INTEGER FUNCTION round(a)
@@ -3320,7 +3455,8 @@ c      PRINT*,	"dJ_int_range", dJ_int_range
 
       SUBROUTINE TRAJ_ORB(l_momentum,id_of_traject,flag,dl,ident,
      & lmin)
-! This subroutine is written by Alexander Semenov
+	  use bk_l_values
+! This subroutine is written by Alexander Semenov, and modified by Bikramaditya Mandal
       IMPLICIT NONE 
       INTEGER l_momentum,id_of_traject,flag,dl,lmin
       LOGICAL ident,EVEN_NUM
@@ -3328,16 +3464,49 @@ c      PRINT*,	"dJ_int_range", dJ_int_range
       IF(.not.ident) THEN	  
       SELECT CASE(flag)
       CASE(1)
-      id_of_traject = (l_momentum-lmin)/dl + 1	  
+!      id_of_traject = (l_momentum-lmin)/dl + 1	  
+      id_of_traject = (l_momentum-lmin)/dl + 1
+	  if (l_switch_bk.gt.0d0) then
+	  if(l_momentum.le.l_switch_bk)then
+	  id_of_traject = (l_momentum-lmin)/dl + 1
+	  else
+	  id_of_traject = (l_momentum-l_switch_bk)/delta_l_lr + 1+l_range1
+	  end if
+	  end if
       CASE(-1)
-      l_momentum = (id_of_traject-1)*dl + lmin      	  
+!      l_momentum = (id_of_traject-1)*dl + lmin    
+	  l_momentum = (id_of_traject-1d0/2d0)*dl + lmin
+	  if (l_switch_bk.gt.0d0) then
+	  if(id_of_traject.le.l_range1) then
+      l_momentum = (id_of_traject-1d0/2d0)*dl + lmin
+	  else
+	  l_momentum = ((id_of_traject-l_range1)-1d0/2d0)*delta_l_lr 
+     & + l_switch_bk
+	  end if
+	  end if
       END SELECT
       ELSE
       SELECT CASE(flag)
       CASE(1)
       id_of_traject = (l_momentum-lmin)/dl + 1
+	  if (l_switch_bk.gt.0d0) then
+	  if(l_momentum.le.l_switch_bk)then
+	  id_of_traject = (l_momentum-lmin)/dl + 1
+	  else
+	  id_of_traject = (l_momentum-l_switch_bk)/delta_l_lr + 1+l_range1
+	  end if
+	  end if
       CASE(-1)
-      l_momentum = (id_of_traject-1)*dl + lmin
+!      l_momentum = (id_of_traject-1)*dl + lmin
+      l_momentum = (id_of_traject-1d0/2d0)*dl + lmin	
+	  if (l_switch_bk.gt.0d0) then
+	  if(id_of_traject.le.l_range1) then
+      l_momentum = (id_of_traject-1d0/2d0)*dl + lmin
+	  else
+	  l_momentum = ((id_of_traject-l_range1)-1d0/2d0)*delta_l_lr 
+     & + l_switch_bk
+	  end if
+	  end if
       END SELECT	  
       ENDIF	  
       END SUBROUTINE TRAJ_ORB	  
@@ -3581,6 +3750,7 @@ c      PRINT*,	"dJ_int_range", dJ_int_range
       USE MONTE_CARLO_STORAGE	  
       IMPLICIT NONE
       INTEGER max_numb_trajec,j_count
+	  integer l_switch_bk_tmp, l1_tmp, l2_tmp										! Bikram Feb 2021
       REAL*8 j_bound_up,j_bound_d	
       REAL*8 max_energ	  
 	  IF(monte_carlo_defined) THEN
@@ -3601,6 +3771,14 @@ c      PRINT*,	"dJ_int_range", dJ_int_range
       ENDIF
       max_numb_trajec=
      & int(j_bound_up - j_bound_d+jmax_included)/delta_l_step + 1
+	  
+! Bikram Start: Feb 2021, regarding the L_switch
+	  if(bk_b_switch.gt.0.d0) then
+	  l_switch_bk_tmp = int(bk_b_switch*sqrt(massAB_M*2d0*max_energ))
+	  l1_tmp = (l_switch_bk_tmp-j_bound_d+jmax_included)/delta_l_step + 1
+	  l2_tmp = (j_bound_up - l_switch_bk_tmp)/bk_dl_lr + 1
+	  max_numb_trajec = l1_tmp + l2_tmp
+	  end if
       ENDIF
       END  SUBROUTINE DEFINE_MAX_NUM_TRAJ     
       FUNCTION EVEN_NUM(n)
@@ -3617,6 +3795,7 @@ c      PRINT*,	"dJ_int_range", dJ_int_range
       USE MPI	  
       USE MPI_DATA
       USE MPI_TASK_TRAJECT	  
+	  use bk_l_values												!Bikram Feb 2021
       IMPLICIT NONE
       LOGICAL print_deflect,diff_def	  
       INTEGER k,i_traj,id_traject,i_ip,l_int_traj,traj_works,j_int_traj
@@ -3634,8 +3813,16 @@ c      PRINT*,	"dJ_int_range", dJ_int_range
 	  integer bkn,bk_nchanl			!Bikram Feb 2020
 	  real*8 bk_probab_sum_tmp			!Bikram Feb 2020
 	  real*8, allocatable :: bk_probab_tmp(:,:)			!Bikram Feb 2020
-	  integer random_counter
       logical monte_carlo_defined	  !Bikram Oct'18
+	  	  
+	  real*8, allocatable :: bk_l_tmp(:), bk_phase(:)
+	  integer tmp_l
+	  real*8, allocatable :: bk_prob1(:,:), spln_der(:,:)
+	  real*8, allocatable :: bk_def1(:), spln_der_def(:)
+	  real*8 spln_yp1, spln_yp2, spln_yp, prob_reslt
+	  real*8 def_reslt1, def_reslt2
+	  real*8, parameter :: bk_cm_Ev = 27.21113845d0*8065.5448d0	
+	  	  
       ALLOCATE(
      & phase_scatter(tot_number_of_traject),
      & def_fnc(tot_number_of_traject))
@@ -3664,11 +3851,6 @@ c      PRINT*,	"dJ_int_range", dJ_int_range
       bk_probab_tmp = 0d0
 ! Bikram End.     
 
-!      write(*,'(a,1x,i0,1x,i0,1x,i0)') 'outside', 
-!     & myid, itraj_myid_l(1,1), itraj_myid_l(2,1)
-!	  write(*,'(i0,1x,i0,1x,i0)') 
-!     & myid, L_MIN_TRAJECT, L_MAX_TRAJECT
-	  random_counter = 0
 !!! CRATE DEF FUNCTION ARRAY	  
       DO l_int_traj = L_MIN_TRAJECT,L_MAX_TRAJECT
 !      id_traject = (l_int_traj-L_MIN_TRAJECT)/dl_step_integ+1
@@ -3678,28 +3860,12 @@ c      PRINT*,	"dJ_int_range", dJ_int_range
      & dl_step_integ,
      & ident_skip,
      & L_MIN_TRAJECT)
-!	  if(abs(itraj_myid_l(1,id_traject)).gt.1) 
-!     & itraj_myid_l(1,id_traject) = 1
-!	  if(abs(itraj_myid_l(2,id_traject)).gt.0) 
-!     & itraj_myid_l(2,id_traject) = 0
+	 
       i_traj = itraj_myid_l(1,id_traject)	  
       i_ip = itraj_myid_l(2,id_traject)
       id_proc = i_ip*mpi_traject 
-	  random_counter = random_counter + 1
-!	  if(random_counter.eq.1) 
-!     & write(*,'(i0,1x,i0,1x,i0,1x,i0,1x,i0,1x,i0,1x,i0,1x,i0)') 
-!      write(*,'(i0,1x,i0,1x,i0,1x,i0,1x,i0,1x,i0,1x,i0)') 
-!     & myid, l_int_traj, id_traject, itraj_myid_l(1,id_traject), 
-!     & itraj_myid_l(2,id_traject), i_traj, id_proc+1
-!	  if(size(angle_scatter).ne.size(def_fnc))
-!     & write(*,'(i0,1x,i0,1x,i0,1x,i0,1x,i0,1x,i0,1x,i0,1x,i0,1x,i0
-!     & ,1x,i0,1x,i0)') myid, tot_number_of_traject,
-!     & size(angle_scatter),size(def_fnc),L_MIN_TRAJECT,
-!     & L_MAX_TRAJECT,id_traject,i_traj,i_ip,mpi_traject,id_proc+1
-!	  print *, 'L', L_MIN_TRAJECT,L_MAX_TRAJECT
-!	  print *, id_traject,i_traj,id_proc+1
-      def_fnc(id_traject)  = angle_scatter(i_traj,id_proc+1)
 	  
+      def_fnc(id_traject)  = angle_scatter(i_traj,id_proc+1)
 ! Bikram Start:
 	  bk_time(id_traject)  = bk_tym(i_traj,id_proc+1)
 	  bk_period(id_traject)  = bk_prd(i_traj,id_proc+1)
@@ -3710,6 +3876,8 @@ c      PRINT*,	"dJ_int_range", dJ_int_range
 ! Bikram End
 	  
       ENDDO	  
+	  
+	  
 !!!! COMPUTING SCATTERING PHASE
 
       DO id_traject= tot_number_of_traject-1,1,-1 
@@ -3728,10 +3896,6 @@ c      PRINT*,	"dJ_int_range", dJ_int_range
       dl_temp = abs(l2_temp-l1_temp)	 
       phase_scatter(id_traject) = phase_scatter(id_traject+1)
      & - (def_fnc(id_traject)+def_fnc(id_traject+1))/2d0*dl_temp
-!	  if(abs(itraj_myid_l(1,id_traject)).gt.1) 
-!     & itraj_myid_l(1,id_traject) = 1
-!	  if(abs(itraj_myid_l(2,id_traject)).gt.0) 
-!     & itraj_myid_l(2,id_traject) = 0
       i_traj = itraj_myid_l(1,id_traject)	  
       i_ip = itraj_myid_l(2,id_traject)
       id_proc = i_ip*mpi_traject 	  
@@ -3740,6 +3904,11 @@ c      PRINT*,	"dJ_int_range", dJ_int_range
      & *dcmplx(dcos(phase_scatter(id_traject)),
      & dsin(phase_scatter(id_traject))))**2/k_vec**2*pi*(2d0*l1_temp+1)
      & * dl_temp	 
+	 
+!	  write(*,'(i0,1x,i0,1x,f12.5,1x,f12.5,1x,f12.5,1x,f12.5)')
+!     & id_traject,dl_temp,def_fnc(id_traject),def_fnc(id_traject+1),
+!     & phase_scatter(id_traject),elast_probab
+	  
       ENDDO
 !!! SCATTERING AMPLITUTE	  
       f_scatter_ampl = (0d0,0d0)
@@ -3806,16 +3975,41 @@ c      PRINT*,	"dJ_int_range", dJ_int_range
 
 ! Bikram Start:
 	  open(22,file = 'OPACITY_FUNCTIONS_L.out',position = 'append')
-	  open(23,file = 'OPACITY_FUNCTIONS_SUM_L.out',position = 'append')
+	  open(23,file = 'TOTAL_PROBABILITIES_L.out',position = 'append')
+	  
+      WRITE(23,'(a,i0)') "STATE= ", s_st
+      WRITE(23,'(a,i0)') "j12= ",j12_s_st	  
+      WRITE(23,'(a,i0)') "m12= ",m12_s_st	  
+      WRITE(23,'(a,i0,a,f0.3,a)')
+     & "ENERGY#",i_ener,", U(i)= ",
+     & E_coll(i_ener)*bk_cm_Ev," cm^-1"
+      WRITE(23,'(a8,7x,a7,1x,a15,1x,a16)',
+     & ADVANCE="NO") "B_IMPACT", "     L ", "TOT_ELAST_PROB", 
+     & "TOT_INELAST_PROB"
+      WRITE(23,*)	  
+	  
+      WRITE(22,'(a,i0)') "STATE= ", s_st
+      WRITE(22,'(a,i0)') "j12= ",j12_s_st	  
+      WRITE(22,'(a,i0)') "m12= ",m12_s_st	  
+      WRITE(22,'(a,i0,a,f0.3,a)')
+     & "ENERGY#",i_ener,", U(i)= ",
+     & E_coll(i_ener)*bk_cm_Ev," cm^-1"
+      DO bkn = 1, bk_nchanl
+      IF(bkn.eq.1) WRITE(22,'(a8,7x,a7,5x)',ADVANCE="NO")
+     & "B_IMPACT", "     L "    	 
+      WRITE(22,'(a8,i6,1x)',ADVANCE="NO") "CHANNEL=",bkn
+      ENDDO
+      WRITE(22,*)	  
+	  
 	  do id_traject = 1, tot_number_of_traject
 	  bk_probab_sum_tmp = 0.d0
 	  do bkn = 1, bk_nchanl
 	  bk_probab_sum_tmp = bk_probab_sum_tmp + 
      & bk_probab_tmp(bkn,id_traject)
 	  if(bkn.eq.1) then 
-	  write(22,'(e15.8,1x,i4,1x,e15.8,1x)',ADVANCE="NO") 
-     & dble((id_traject-1)*dl_step_integ  + L_MIN_TRAJECT )/k_vec,
-     & (id_traject-1)*dl_step_integ  + L_MIN_TRAJECT,
+	  write(22,'(e15.8,1x,i6,1x,e15.8,1x)',ADVANCE="NO") 
+     & dble((id_traject-1/2d0)*dl_step_integ  + L_MIN_TRAJECT )/k_vec,
+     & int((id_traject-1/2d0)*dl_step_integ  + L_MIN_TRAJECT),
      & bk_probab_tmp(bkn,id_traject)
 	  else
 	  write(22,'(e15.8,1x)',ADVANCE="NO") 
@@ -3823,9 +4017,10 @@ c      PRINT*,	"dJ_int_range", dJ_int_range
 	  endif
 	  enddo
 	  write(22,*)
-	  write(23,'(e15.8,1x,i4,1x,e15.8,1x,e15.8)')
-     & dble((id_traject-1)*dl_step_integ  + L_MIN_TRAJECT )/k_vec,
-     & (id_traject-1)*dl_step_integ  + L_MIN_TRAJECT,
+	  
+	  write(23,'(e15.8,1x,i6,1x,e15.8,1x,e15.8)')
+     & dble((id_traject-1/2d0)*dl_step_integ  + L_MIN_TRAJECT )/k_vec,
+     & int((id_traject-1/2d0)*dl_step_integ  + L_MIN_TRAJECT),
      & bk_probab_sum_tmp, 
      & bk_probab_sum_tmp - bk_probab_tmp(ini_channel,id_traject)
 	  enddo
@@ -3847,8 +4042,8 @@ c      PRINT*,	"dJ_int_range", dJ_int_range
       DO id_traject = 1,tot_number_of_traject
       WRITE(2,'(i4,2x,e15.8,1x,e19.8,2x,e19.8,3x,e19.8,1x,e19.8,1x
      & ,e19.8,3x,i5,3x,i5)')
-     & (id_traject-1)*dl_step_integ  + L_MIN_TRAJECT ,
-     & dble((id_traject-1)*dl_step_integ  + L_MIN_TRAJECT )/k_vec,
+     & int((id_traject-1/2d0)*dl_step_integ  + L_MIN_TRAJECT) ,
+     & dble((id_traject-1/2d0)*dl_step_integ  + L_MIN_TRAJECT )/k_vec,
      & def_fnc(id_traject),phase_scatter(id_traject)
      & ,bk_time(id_traject),bk_err_E(id_traject)
      & ,bk_err_P(id_traject),bk_period(id_traject)
@@ -3883,6 +4078,101 @@ c      PRINT*,	"dJ_int_range", dJ_int_range
 	  DEALLOCATE(bk_err_P)
 	  DEALLOCATE(bk_probab_tmp)
 ! Bikram End
+
+! Bikram Start, Feb 2021:
+	  if(transfer_prob_spln) then
+	  if(.not. allocated(bk_prob1))
+     & allocate(bk_prob1(bk_nchanl,tot_number_of_traject))
+	  if(.not. allocated(bk_def1))
+     & allocate(bk_def1(tot_number_of_traject))
+	  if(.not. allocated(bk_l_tmp))
+     & allocate(bk_l_tmp(tot_number_of_traject))
+	  if(.not. allocated(spln_der))
+     & allocate(spln_der(bk_nchanl,tot_number_of_traject))
+	  if(.not. allocated(spln_der_def))
+     & allocate(spln_der_def(tot_number_of_traject))
+	  if(.not. allocated(bk_phase))
+     & allocate(bk_phase(L_MAX_TRAJECT-L_MIN_TRAJECT+1))
+
+      DO l_int_traj = L_MIN_TRAJECT,L_MAX_TRAJECT
+	  
+      CALL TRAJ_ORB(l_int_traj,
+     & id_traject,
+     & 1,
+     & dl_step_integ,
+     & ident_skip,
+     & L_MIN_TRAJECT)
+	 
+      i_traj = itraj_myid_l(1,id_traject)	  
+      i_ip = itraj_myid_l(2,id_traject)
+      id_proc = i_ip*mpi_traject 
+	  
+	  CALL TRAJ_ORB(tmp_l,
+     & id_traject,
+     & -1,
+     & dl_step_integ,
+     & ident_skip,
+     & L_MIN_TRAJECT)
+	  
+	  bk_prob1(:,id_traject) = probab_J_all(:,i_traj,id_proc+1)
+	  bk_def1(id_traject) = angle_scatter(i_traj,id_proc+1)	  
+	  bk_l_tmp(id_traject) = tmp_l*1.d0
+	 
+      ENDDO
+	  
+	  if(tot_number_of_traject.ne.size(bk_l_tmp)) then
+      print*, 'Size Error in the Inelastic Probability Interpolation'
+	  stop
+	  end if
+	  
+	  do k = 1, bk_nchanl
+	  spln_yp1=(bk_prob1(k,2)-bk_prob1(k,1))/(bk_l_tmp(2)-bk_l_tmp(1))
+	  spln_yp2=(bk_prob1(k,tot_number_of_traject)-
+     & bk_prob1(k,tot_number_of_traject-1))/
+     & (bk_l_tmp(tot_number_of_traject)-
+     & bk_l_tmp(tot_number_of_traject-1))
+	  call spline(bk_l_tmp,bk_prob1(k,:),tot_number_of_traject,
+     & spln_yp1,spln_yp2,spln_der(k,:))
+	  
+	  spln_yp1=(bk_def1(2)-bk_def1(1))/(bk_l_tmp(2)-bk_l_tmp(1))
+	  spln_yp2=(bk_def1(tot_number_of_traject)-
+     & bk_def1(tot_number_of_traject-1))/
+     & (bk_l_tmp(tot_number_of_traject)-
+     & bk_l_tmp(tot_number_of_traject-1))
+	  call spline(bk_l_tmp,bk_def1,tot_number_of_traject,
+     & spln_yp1,spln_yp2,spln_der_def)
+	  end do
+
+	  bk_phase = 0.d0
+	  sigma_el = 0.d0
+      DO id_traject= L_MAX_TRAJECT-1,L_MIN_TRAJECT,-1
+	  call splint(bk_l_tmp,bk_def1,spln_der_def,
+     & tot_number_of_traject,id_traject*1.d0,def_reslt1,spln_yp)
+	  call splint(bk_l_tmp,bk_def1,spln_der_def,
+     & tot_number_of_traject,(id_traject+1)*1.d0,def_reslt2,spln_yp)
+	  call splint(bk_l_tmp,bk_prob1(ini_channel,:),
+     & spln_der(ini_channel,:),
+     & tot_number_of_traject,id_traject*1.d0,prob_reslt,spln_yp)
+	  
+      bk_phase(id_traject+1) = bk_phase(id_traject+2)
+     & - (def_reslt1+def_reslt2)/2d0	
+      elast_probab = prob_reslt
+
+      sigma_el = sigma_el + abs(1d0-abs(dsqrt(elast_probab))
+     & *dcmplx(dcos(bk_phase(id_traject+1)),
+     & dsin(bk_phase(id_traject+1))))**2
+     & /k_vec**2*pi*(2d0*id_traject+1)
+
+      ENDDO
+	  
+	  if(allocated(bk_prob1)) deallocate(bk_prob1)
+	  if(allocated(bk_prob1)) deallocate(bk_def1)
+	  if(allocated(bk_prob1)) deallocate(bk_l_tmp)
+	  if(allocated(bk_prob1)) deallocate(spln_der)
+	  if(allocated(bk_prob1)) deallocate(spln_der_def)
+	  if(allocated(bk_prob1)) deallocate(bk_phase)
+	  end if
+! Bikram End.
 	  
       END SUBROUTINE ELAST_CALC
       SUBROUTINE VARIANCE_COMPUTE(x_values,s_value,n,j)

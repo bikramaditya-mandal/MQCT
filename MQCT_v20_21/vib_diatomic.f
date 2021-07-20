@@ -11,7 +11,7 @@
      & "ERROR: VIBRATION MODE V  IS MORE THAN V_MAX = ",
      & vmax, ", V = ", v
       ENDIF	 
-      E = we*(v+0.5d0) - xe*(v+0.5d0)*2 + Be*dble(j*(j+1)) - 
+      E = we*(v+0.5d0) - xe*(v+0.5d0)**2 + Be*dble(j*(j+1)) - 
      & de*dble(j*(j+1))**2
       
       END SUBROUTINE energy_diatom 

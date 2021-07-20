@@ -6,6 +6,8 @@
       INTEGER i,st,j_count,j_summ,m_count,j1_count,j2_count
       INTEGER p_count
       INTEGER st1,st2,KRONEKER,p_lim_max_ini,round	 
+	  integer bk_global_parity(number_of_channels)								! Bikram April 2021
+	  integer bk_kappa(number_of_channels), kappa12								! Bikram April 2021
       EXTERNAL KRONEKER,round	  
       st = 0
       IF(MYID.eq.0) PRINT *, "ARRAY_INI_STARTED"
@@ -225,12 +227,28 @@ c     & "j1",j1_ch(i),"j2",j2_ch(i),"lc",l_count,"pc",p_count
      & jmax_included*2+1,number_of_channels))
       indx_corr = 0	 
       IF(identical_particles_defined) THEN	  
+      ALLOCATE(parity_state_bk(states_size))											!Bikram April 2021
+      ALLOCATE(parity_state_sign_bk(states_size))											!Bikram April 2021
       ALLOCATE(parity_state(states_size))
       ALLOCATE(indx_corr_id(2,4*jmax_included+1,
      & jmax_included*2+1,number_of_channels))
       indx_corr_id = 0	 
       ENDIF
       IF(MYID.eq.0) PRINT *, "BASIS ARRAYS CREATED"
+	  
+! Bikram Start April 2021:
+	  if(identical_particles_defined) then
+	  do i = 1, number_of_channels
+	  call ASYM_TOP_VECTORS
+	  bk_global_parity(i) = parity_inversion(i)
+	  call bikram_kappa(ka1_ch(i),kc1_ch(i),ka2_ch(i),kc2_ch(i),
+     & kappa12)
+	  bk_kappa(i) = (-1d0)**kappa12
+!	  print*, bk_global_parity(i), parity_inversion(i)
+	  end do
+	  end if
+! Bikram End.
+
       indx_chann = 0
       m12 = 0
       j12 = 0	  
@@ -435,7 +453,7 @@ c      PRINT*,"channel,states=",i,st+m_count+j_summ,j_summ
       CASE(0)
       IF(.not.identical_particles_defined) THEN	  
       DO j_summ = abs(j1_ch(i)-j2_ch(i)),j1_ch(i)+j2_ch(i)
-      DO j_count = -j_summ,j_summ
+      DO j_count = -j_summ,j_summ	
       st = st + 1
       indx_chann(st) = i
 c      WRITE(1,*) i,st
@@ -448,10 +466,11 @@ c      PRINT*,"channel,states=",i,st+m_count+j_summ,j_summ
       ENDDO
       j_min_ind(i) =  abs(j1_ch(i)-j2_ch(i))
       j_max_ind(i) = j1_ch(i)+j2_ch(i)		  
+	  
       ELSE
 !      p_lim_max = min(2-KRONEKER(j1_ch(i),j2_ch(i))
 !     & *KRONEKER(ka1_ch(i),ka2_ch(i))*KRONEKER(kc1_ch(i),kc2_ch(i)),
-!     & p_lim_max_ini)	        
+!     & p_lim_max_ini)
 	  p_lim_max = 2-KRONEKER(j1_ch(i),j2_ch(i))
      & *KRONEKER(ka1_ch(i),ka2_ch(i))*KRONEKER(kc1_ch(i),kc2_ch(i))
 	  
@@ -465,11 +484,16 @@ c      WRITE(1,*) i,st
       m12(st) = j_count
 c      PRINT*,"channel,states=",i,st+m_count+j_summ,j_summ	  
       Ej(st) = E_ch(i)
+      parity_state_bk(st) = (-1)**j_summ*bk_global_parity(i)*bk_kappa(i)
+!	  if(m12(st).eq.0d0) write(*,'(i3,1x,6(i0),3(1x,i0),1x,f12.5)')st, 
+!     & j1_ch(i), ka1_ch(i), kc1_ch(i), j2_ch(i), ka2_ch(i), kc2_ch(i), 
+!     & j12(st), m12(st), parity_state(st), Ej(st)
       parity_state(st) = (-1)**(p_count-1)
 	  
-	  if(j1_ch(i).eq.j2_ch(i) .and. ka1_ch(i).eq.ka2_ch(i) .and.
-     & kc1_ch(i).eq.kc2_ch(i)) 
-     & parity_state(st) = parity_state(st)*(-1)**j_summ
+!	  if(j1_ch(i).eq.j2_ch(i) .and. ka1_ch(i).eq.ka2_ch(i) .and.
+!     & kc1_ch(i).eq.kc2_ch(i)) 
+!     & parity_state_bk(st) = parity_state_bk(st)*(-1)**j_summ
+	  parity_state_sign_bk(st) = parity_state(st)*parity_state_bk(st)
 	  
 !	  write(*,'(i0,i0,i0,i0,i0,i0,1x,i0)')j1_ch(i), ka1_ch(i),
 !     & kc1_ch(i), j2_ch(i), ka2_ch(i), kc2_ch(i), parity_state(st)
@@ -3958,20 +3982,20 @@ c      PRINT*,st_1,st_2,intgeral
       ENDDO	 
       ENDIF	 
       END SELECT
-      WRITE(1,"(a9,1x,a4,1x,a4)") "MIJ_INDEX", "ST_1", "ST_2"
+      WRITE(1,"(a16,1x,a8,1x,a8)") "MIJ_INDEX", "ST_1", "ST_2"
       DO i=1,total_size
-      WRITE(1,"(i9,1x,i4,1x,i4)") i,ind_mat(1,i),ind_mat(2,i)	  
+      WRITE(1,"(i16,1x,i8,1x,i8)") i,ind_mat(1,i),ind_mat(2,i)	  
       ENDDO		  
       WRITE(1,'(a5,1x,a19)') "#iR","R_COM(iR)"	  
       DO i=1,n_r_coll
       WRITE(1,'(i5,1x,e19.12)')i,R_COM(i)	  
       ENDDO
-      WRITE(1,'(a8,1x,a3,1x,a19)') "#k_matel","#iR",
+      WRITE(1,'(a16,1x,a3,1x,a19)') "#k_matel","#iR",
      & "Mij(iR,k_matel)"!,
 !     & "Mij_der(iR,k_matel)"	  
       DO k=1,total_size
       DO i=1,n_r_coll	  
-      WRITE(1,'(i8,1x,i3,1x,e19.12)')k,i,Mat_el(i,k)!,
+      WRITE(1,'(i16,1x,i3,1x,e19.12)')k,i,Mat_el(i,k)!,
 !     & Mat_el_der(i,k)	  
       ENDDO
       ENDDO
@@ -4777,7 +4801,7 @@ c     & "j1",j1_ch(i),"j2",j2_ch(i),"lc",l_count,"pc",p_count
 1994      READ(1,*)
 !      PRINT*, buffer_word_3
       DO i=1,total_size_old
-      READ(1,"(i9,1x,i4,1x,i4)") i_old,ind_mat_old_1,ind_mat_old_2
+      READ(1,"(i16,1x,i8,1x,i8)") i_old,ind_mat_old_1,ind_mat_old_2
       IF(i.ne.i_old) CRITICAL_ERROR = .TRUE.
       IF(i.le.total_size) THEN	  
       IF(ind_mat_old_1.ne.ind_mat(1,i)) CRITICAL_ERROR = .TRUE.
@@ -4791,7 +4815,7 @@ c     & "j1",j1_ch(i),"j2",j2_ch(i),"lc",l_count,"pc",p_count
       READ(1,*)	  
       DO  k=1,min(total_size,total_size_old)
       DO i=1,n_r_coll
-      READ(1,'(i8,1x,i3,1x,e19.12)')k_old,i_old,
+      READ(1,'(i16,1x,i8,1x,e19.12)')k_old,i_old,
      & Mat_el(i,k) 	  
       IF(k_old.ne.k) PRINT*,"ERROR IN MIJ: k is wrong"
       IF(i.ne.i_old) PRINT*,"ERROR IN MIJ : ir is wrong"
@@ -5877,6 +5901,7 @@ c     & "j1",j1_ch(i),"j2",j2_ch(i),"lc",l_count,"pc",p_count
       INTEGER st,i,k
 	  character(len = *),parameter :: bk_dir = 'MATRIX_FILES'
 	  character (len=100) :: bk_dir_temp_1,bk_dir_temp_2
+	  character (len=100) :: bk_dir_temp_5
 	  
       PRINT*,"SYSTEM_SETUP_DONE"
 	  write(bk_dir_temp_1, '(a,a)') bk_dir, '/MATRIX_INFO.DAT'
@@ -6043,15 +6068,24 @@ c     & "j1",j1_ch(i),"j2",j2_ch(i),"lc",l_count,"pc",p_count
       ENDDO	 
       ENDIF	 
       END SELECT
-      WRITE(1,"(a9,1x,a4,1x,a4)") "MIJ_INDEX", "ST_1", "ST_2"
+      WRITE(1,"(a16,1x,a8,1x,a8)") "MIJ_INDEX", "ST_1", "ST_2"
       DO i=1,total_size
-      WRITE(1,"(i9,1x,i4,1x,i4)") i,ind_mat(1,i),ind_mat(2,i)	  
+      WRITE(1,"(i16,1x,i8,1x,i8)") i,ind_mat(1,i),ind_mat(2,i)	  
       ENDDO		  
       WRITE(1,'(a5,1x,a19)') "#iR","R_COM(iR)"	  
       DO i=1,n_r_coll
       WRITE(1,'(i5,1x,e19.12)')i,R_COM(i)	  
       ENDDO
+	  WRITE(1,*)
 	  close(1)
+	  
+	  call getcwd(bk_dir_temp_5)
+	  call chdir(trim(bk_dir))
+	  call system ( "chmod +x MATRIX_COMBINE.sh" )
+	  call system ( "./MATRIX_COMBINE.sh" )
+	  print *, 'need work to do in combine'
+	  call chdir(trim(bk_dir_temp_5))
+	  
       IF(test_expansion_defined) THEN 
       CALL PRINT_ELASTIC_MIJ
       PRINT*, "ELASTIC_TERMS_FILE_CREATED"  
@@ -6072,17 +6106,14 @@ c     & "j1",j1_ch(i),"j2",j2_ch(i),"lc",l_count,"pc",p_count
 	  character(len = *),parameter :: bk_dir = 'MATRIX_FILES'
 	  character (len=100) :: bk_dir_temp_1,bk_dir_temp_2
 	  
-	  write(bk_dir_temp_1, '(a,a,i0)')bk_dir, '/Proc_', myid
-      call system ( "mkdir -p " // trim(bk_dir_temp_1) )
-	  
-	  write(bk_dir_temp_1, '(a,a,i0,a,i0,a,i0,a)') 
-     & bk_dir, '/Proc_', myid, '/MIJ_',bk_n1,'_',bk_n2,'.DAT'
+	  write(bk_dir_temp_1, '(a,a,i0,a,i0,a)') 
+     & bk_dir, '/MIJ_',bk_n1,'_',bk_n2,'.DAT'
 	  bk_dir_temp_2 = trim(bk_dir_temp_1)
 	  OPEN(1,FILE=bk_dir_temp_2,ACTION="WRITE",access = 'append')
 	  
 	  do kk = 1, bk_ncount
       DO ii=1,n_r_coll	  
-      WRITE(1,'(i8,1x,i3,1x,e19.12)')(kk-1)+mat_chk,ii,
+      WRITE(1,'(i16,1x,i8,1x,e19.12)')(kk-1)+mat_chk,ii,
      & bk_mat_array(ii,kk)
       ENDDO
       ENDDO
@@ -6948,6 +6979,7 @@ c     & "j1",j1_ch(i),"j2",j2_ch(i),"lc",l_count,"pc",p_count
 	  bk_dir_temp_4 = trim(bk_dir_temp_3)
 	  open(11,file = bk_dir_temp_4)
 	  write(11,*)'#!/bin/sh'
+	  write(11,*)'cat MATRIX_INFO.DAT >> ../MTRX.DAT'
 	  
 	  mij_remainder = 0
 	  do i = 1, tot_proc
@@ -6977,21 +7009,13 @@ c     & "j1",j1_ch(i),"j2",j2_ch(i),"lc",l_count,"pc",p_count
 	  end if	  
 	  
 	  write(bk_dir_temp_1, '(a,i0,a,i0,a)') 
-     & 'cat MIJ_',k_st,'_',k_fn,'.DAT >> MATRIX.DAT'
+     & 'cat MIJ_',k_st,'_',k_fn,'.DAT >> ../MTRX.DAT'
 	  bk_dir_temp_2 = trim(bk_dir_temp_1)
 	  write(11,*) bk_dir_temp_2
 	  
 	  end do
 	  
 	  close(11)
-	  
-	  call getcwd(bk_dir_temp_5)
-	  call chdir(trim(bk_dir))
-	  call system ( "chmod +x MATRIX_COMBINE.sh" )
-	  call system ( "./MATRIX_COMBINE.sh" )
-	  print *, 'need work to do in combine'
-	  call chdir(trim(bk_dir_temp_5))
-	  
       END SUBROUTINE	
 	  
 	  SUBROUTINE bk_matrix_splitting
@@ -7075,4 +7099,39 @@ c     & "j1",j1_ch(i),"j2",j2_ch(i),"lc",l_count,"pc",p_count
 	  call chdir(trim(bk_dir_temp_5))
 	  
       END SUBROUTINE	
+
+      subroutine bikram_kappa(bk_ka1, bk_kc1, bk_ka2, bk_kc2, k12)
+! This subroutine is written by Bikramaditya Mandal
+! This determine the sign of kappa1 and kappa2 which is used to compute total parity, follow the paper on water of Semenov et al.
+      implicit none
+      integer bk_ka1, bk_kc1, bk_ka2, bk_kc2
+	  integer symm_coeff1, symm_coeff2
+      integer k12, kappa1, kappa2
+
+      symm_coeff1 = bk_ka1 - bk_kc1
+	  if(mod(abs(symm_coeff1),2).eq.0d0 .and. 
+     & mod(abs(symm_coeff1-1),2).eq.1d0) then
+	  kappa1 = 0d0
+	  else if(mod(abs(symm_coeff1),2).eq.1d0 .and. 
+     & mod(abs(symm_coeff1-1),2).eq.0d0) then
+	  kappa1 = 1d0
+	  else
+	  write(*,'(a)')'Something is wrong in Computation of Kappa1'
+	  stop
+	  end if
+	  
+      symm_coeff2 = bk_ka2 - bk_kc2	 
+	  if(mod(abs(symm_coeff2),2).eq.0d0 .and. 
+     & mod(abs(symm_coeff2-1),2).eq.1d0) then
+	  kappa2 = 0d0
+	  else if(mod(abs(symm_coeff2),2).eq.1d0 .and. 
+     & mod(abs(symm_coeff2-1),2).eq.0d0) then
+	  kappa2 = 1d0
+	  else
+	  write(*,'(a)')'Something is wrong in Computation of Kappa2'
+	  stop
+	  end if
+	  k12 = kappa1 + kappa2
+	  
+      end subroutine
 	

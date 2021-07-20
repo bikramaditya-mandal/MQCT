@@ -223,6 +223,7 @@ c! VARIABLES
       LOGICAL bikram_int							!Bikram
       LOGICAL bikram_theta							!Bikram
       LOGICAL bikram_print							!Bikram
+      LOGICAL bk_prob_interpolation							!Bikram
       LOGICAL bk_nrg_err							!Bikram
       LOGICAL bk_step_size							!Bikram
       LOGICAL bikram_mij_shift							!Bikram
@@ -287,6 +288,7 @@ c! VARIABLES
       INTEGER J_tot_max
       INTEGER J_tot_min
       INTEGER delta_l_step	  
+      INTEGER bk_dl_lr											!Bikram Feb 2021	  
       INTEGER mpi_task_per_traject	  
       INTEGER number_of_channels
       INTEGER TIME_MIN_CHECK
@@ -304,6 +306,7 @@ c! VARIABLES
      & j12(:),m12(:),chann_indx(:),indx_chann(:), indx_corr(:,:,:),
      & ind_mat(:,:),parity_state(:),indx_corr_id(:,:,:,:)
      & ,j_max_ind(:),j_min_ind(:),f_ch(:),par_lorb_ch(:)
+	  integer, allocatable :: parity_state_bk(:), parity_state_sign_bk(:)										!Bikram April 2021
 ! Bikram Start Dec 2019:
 	  integer,allocatable :: ind_mat_bk(:,:),bk_indx(:)						
 	  integer mat_sz_bk,ph_cntr_bk,splnt_bfr,splnt_afr												
@@ -355,6 +358,7 @@ c! VARIABLES
       REAL*8 time_step
       REAL*8 min_t_stp
       REAL*8 bk_rk4_tol_adia										!Bikram
+      REAL*8 bk_b_switch										!Bikram
       REAL*8 time_lim
       REAL*8 eps_odeint
       REAL*8 mnt_crl_intgrt_err
@@ -2410,7 +2414,7 @@ c      PRINT*, "C2=","defined",C2
       IMPLICIT NONE	  
       INTEGER len_inp
       CHARACTER(LEN = len_inp) system_inp 
-      INTEGER, PARAMETER :: key_num = 43 
+      INTEGER, PARAMETER :: key_num = 46 
       INTEGER posit,key,key_words(key_num)
       INTEGER lbl_bgn,lbl_end
       INTEGER i	  
@@ -2433,6 +2437,7 @@ c      PRINT*, "C2=","defined",C2
 	  bikram_int=.FALSE. 			!Bikram
 	  bikram_theta=.FALSE. 			!Bikram
 	  bikram_print=.false.			!Bikram
+	  bk_prob_interpolation=.false.			!Bikram
 	  bk_nrg_err=.true.				!Bikram
 	  bk_step_size=.false.				!Bikram
       calc_elast_defined = .TRUE.
@@ -2441,6 +2446,7 @@ c      PRINT*, "C2=","defined",C2
       non_format_out_defined = .FALSE.
       cartes_defined = .FALSE.	  
       delta_l_step = 1  
+      bk_dl_lr = 1  											!Bikram Feb 2021
       TIME_MIN_CHECK = -1	  
       posit = 1
       nmbr_of_traj = 100
@@ -2449,6 +2455,7 @@ c      PRINT*, "C2=","defined",C2
       numb_oscl_prds = 1				!(Bikram)	  
       numb_rk4_stps_adia = 5			!(Bikram)	  
 	  bk_rk4_tol_adia = 0.50d0 			!Bikram
+	  bk_b_switch = -10.0d0 			!Bikram
       key_words = 0
       mass_red = 0d0
       R_min_dist = 0d0
@@ -2791,6 +2798,29 @@ c      PRINT*,time_lim
 	  write(*,'(a)') "NEGATIVE TOLERANCE FOR RK4, ADIABATIC"	 
 	  STOP 
 	  endif
+	  CASE(44)
+      IF(system_inp(posit:posit+2).eq."YES")
+     & bk_prob_interpolation = .TRUE.
+      IF(system_inp(posit:posit+1).eq."NO")
+     & bk_prob_interpolation = .FALSE.	  
+      IF((system_inp(posit:posit+2).ne."YES") .and.
+     & (system_inp(posit:posit+1).ne."NO")) CALL ERROR_SIGNALING(37,2)
+      IF(bk_prob_interpolation) posit = posit + 4	 
+      IF(.not.bk_prob_interpolation) posit = posit + 3
+      CASE(45)
+      CALL INT_NUMBERS_READING(system_inp(posit:len_inp),
+     & len_inp-posit+1,
+     & posit,bk_dl_lr,1)
+      IF(bk_dl_lr.lt.1) STOP "ERROR:SUPPLY POSITIVE DELTA L LONG-RANGE"
+      CASE(46)
+      CALL REAL_NUMBER_READING(system_inp(posit:len_inp),
+     & len_inp-posit+1,
+     & posit,bk_b_switch)
+      IF(bk_b_switch.le. 0d0) then
+	  write(*,'(a)') "NEGATIVE OR ZERO B_SWITCH, PLEASE,
+     & PROVIDE CORRECTLY"	 
+	  STOP 
+	  endif
 ! Bikram End.
       END SELECT
 ! Bikram Oct'18 Start:
@@ -2802,12 +2832,34 @@ c      PRINT*,time_lim
      & "MAXIMUM IMPACT PARAMETER WAS SET TO RMAX NOW" 
 ! Bikram End.	  
 	  endif
-! Bikram End	 	 
-      ENDDO 
+! Bikram End
+      ENDDO 	 
+
+! Bikram Start: Feb 2021, related to L_switch
+      if(bk_b_switch.gt.b_impact_parameter) then
+	  bk_b_switch=b_impact_parameter
+      PRINT*,
+     & "WARNING: B_SWICTH SHOULD BE SMALLER THAN MAXIMUM IMPACT
+     & PARAMETER"
+	  PRINT*,
+     & "B_SWICTH WAS SET TO MAXIMUM IMPACT PARAMETER" 
+	  endif	 
+	  if(bk_b_switch.gt.0.d0) then
+	  if(bk_dl_lr.lt.delta_l_step) then
+	  write(*,'(a,i0,1x,i0)')
+     & "WARNING: LONG-RANGE DELTA_L SHOULD BE LARGER THAN
+     & SHORT-RANGE DELTA_L: ", delta_l_step, bk_dl_lr
+	  bk_dl_lr = delta_l_step
+	  PRINT*,
+     & "LONG-RANGE DELTA_L WAS SET TO SHORT-RANGE DELTA_L" 
+	  endif	 
+	  end if
+	  
+! Bikram End.
       END SUBROUTINE SYSTEM_PARSING
       SUBROUTINE KEY_WORD_SYSTEM(inp,length,key_word_used,key,place)
       IMPLICIT NONE !!! KEY WORDS FOR SYSTEM. SEE MANUAL
-      INTEGER, PARAMETER :: num_key_word = 43 	  
+      INTEGER, PARAMETER :: num_key_word = 46 	  
       INTEGER length,posit,key_word_used(num_key_word),
      & key,place,decrement,i
       CHARACTER(LEN=length) inp
@@ -2855,6 +2907,9 @@ c      PRINT*,time_lim
       CHARACTER(LEN=13):: bikram_step_size="AT_ADAPT_STP="       !CASE(41)		!Bikram
       CHARACTER(LEN=10) :: num_of_stps_rk4_adia="NMB_STEPS="        !CASE(42)	!Bikram
       CHARACTER(LEN=8) :: rk4_tol_adia="RK4_TOL="                 !CASE(43)		!Bikram
+      CHARACTER(LEN=12):: bikram_prob_interpolation="PROB_SPLINE="       !CASE(44)		!Bikram
+      CHARACTER(LEN=6) :: bikram_delta_l_LR="DL_LR="                 !CASE(45)		!Bikram
+      CHARACTER(LEN=9) :: bikram_b_switch="B_SWITCH="                 !CASE(46)		!Bikram
       CHARACTER(LEN=1) buffer
       LOGICAL key_used
       IF(length.le.0) RETURN
@@ -3252,6 +3307,33 @@ c      PRINT*,"WANNA CHECK",posit,inp(1:posit)
       ENDIF
       IF(inp(1:posit).eq.rk4_tol_adia) THEN
       key = 43
+      key_used = .TRUE.	  
+      IF(key_word_used(key).eq.1) THEN
+      PRINT*,inp(1:posit)	  
+      STOP "ERROR:THIS WORD IS ALREADY USED"
+      ENDIF
+      key_word_used(key) = 1
+      ENDIF
+	  IF(inp(1:posit).eq.bikram_prob_interpolation) THEN
+      key = 44
+      key_used = .TRUE.	  
+      IF(key_word_used(key).eq.1) THEN
+      PRINT*,inp(1:posit)	  
+      STOP "ERROR:THIS WORD IS ALREADY USED"
+      ENDIF
+      key_word_used(key) = 1
+      ENDIF
+      IF(inp(1:posit).eq.bikram_delta_l_LR) THEN
+      key = 45
+      key_used = .TRUE.	  
+      IF(key_word_used(key).eq.1) THEN
+      PRINT*,inp(1:posit)	  
+      STOP "ERROR:THIS WORD IS ALREADY USED"
+      ENDIF
+      key_word_used(key) = 1
+      ENDIF
+      IF(inp(1:posit).eq.bikram_b_switch) THEN
+      key = 46
       key_used = .TRUE.	  
       IF(key_word_used(key).eq.1) THEN
       PRINT*,inp(1:posit)	  
@@ -4461,8 +4543,8 @@ c      PRINT*,n_r_vib,grid_defined	!!!!!!!!!! DELETE
 !     & "IF ORBITING TRAJECTORIES EXIST, PRINT IMPACT PARAMETERS: NO"	  
 !      ENDIF
 !      WRITE(1,*)
-      IF(tm_lim_defined) WRITE(1,'(a48,1x,e11.4)')
-     & "ALL TRAJECTORIES WILL BE STOPED AFTER TIME_LIMT=",time_lim
+      IF(tm_lim_defined) WRITE(1,'(a,1x,e11.4)')
+     & "ALL TRAJECTORIES WILL BE STOPPED AFTER TIME_LIMT=",time_lim
       WRITE(1,*)
 
 ! Bikram Start:
@@ -5408,8 +5490,8 @@ c      PRINT*,"nlvl==",nlvl
       IF(j_ch(i).lt.k_ch(i))
      & STOP
      & "ERROR: J MUST BE NO LESS THAN K. CHECK THE INPUT CHANNELS."
-      IF(k_ch(i).eq.0 .and. eps_ch(i).ne.1)
-     &	  STOP"ERROR:K=0, SO PARITY MUST BE ZERO"
+      IF(k_ch(i).eq.0 .and. eps_ch(i).ne.0)
+     &	  STOP"ERROR:K=0, SO PARITY MUST BE POSITIVE"
       IF(abs(eps_ch(i)).gt.1) STOP "ERROR: PARITY MUST BE -1 OR 1"
       IF(jmax_included.lt.j_ch(i)) jmax_included = j_ch(i)
       ENDDO	  
@@ -7347,8 +7429,8 @@ c      PRINT*,"number_of_channels = ",number_of_channels
       IF(j1_ch(i).lt.k1_ch(i))
      & STOP
      & "ERROR: J MUST BE NO LESS THAN K. CHECK THE INPUT CHANNELS."
-!      IF(k1_ch(i).eq.0 .and. eps1_ch(i).ne.1)
-!     &	  STOP"ERROR:K=0, SO PARITY MUST BE 1"
+      IF(k1_ch(i).eq.0 .and. eps1_ch(i).ne.0)
+     &	  STOP"ERROR:K=0, SO PARITY MUST BE POSITIVE"
       IF(abs(eps1_ch(i)).gt.1) STOP "ERROR: PARITY MUST BE -1 OR 1"
       IF(jmax_included.lt.j1_ch(i)) jmax_included = j1_ch(i)
       IF(jmax_included.lt.j2_ch(i)) jmax_included = j2_ch(i)	  

@@ -119,6 +119,7 @@
       EXIT	  
       ENDIF 	  
       ENDDO
+!	  write(*,'(a, 1x, 3(i0), 1x, i0)')'1st',j1_t,ka1_t,kc1_t,par_1
 	  
       dk_mult = 0d0	  
       DO dk_chann=1,j2_t+1
@@ -133,13 +134,15 @@
       IF(dk_mult.gt.0d0) par_2=1
       IF(dk_mult.lt.0d0) par_2=-1
       EXIT	  
-      ENDIF 	  
+      ENDIF 	  	  
       ENDDO	
+!	  write(*,'(a, 1x, 3(i0), 1x, i0)')'2nd',j2_t,ka2_t,kc2_t,par_2
       parity_inversion(i) = par_1*par_2
 !      PRINT*,"parity_iversion",i,parity_inversion(i) !!!! TOTAL PARITY INVERSION	  
       ENDIF
 	  
       ENDDO	
+	  
       eig_vec_def = .TRUE.	  
       END SELECT
 c      PRINT*, "VECTORS_COMPUTED", M2_VECTORS(:,:)     	  
@@ -873,21 +876,24 @@ c      !! WRITING THE WAVEFUNCTIONS
       tag2 = 2	  
       CALL MPI_SEND(V_3_2_int_buffer, task_size, MPI_REAL8, dest, 
      &      tag2, MPI_COMM_WORLD, ierr_mpi)
+	  print *, 'sent', myid
       ENDIF
       IF(MYID.EQ.0 .and.make_grid_file) THEN	 
-      OPEN(1,FILE=potential_file_name,ACTION="WRITE",STATUS="NEW")
-      WRITE(1,*) coll_type
-      WRITE(1,*) n_alpha2,n_beta1,n_beta2,n_gamma1,n_r_coll
+      OPEN(1,FILE=potential_file_name,ACTION="WRITE",STATUS="NEW"
+     & ,FORM="UNFORMATTED")
+      WRITE(1) coll_type
+      WRITE(1) n_alpha2,n_beta1,n_beta2,n_gamma1,n_r_coll
       DO i=1,min(n_r_coll,nproc)
       IF(i.gt.1) THEN
       tag2 = 2
       V_3_2_int_buffer = 0d0	  
       CALL MPI_RECV(V_3_2_int_buffer, task_size, MPI_REAL8, 
      & i-1, tag2, MPI_COMM_WORLD, status, ierr_mpi)	  
+	  print *, 'rcvd', i-1
       ENDIF	  
 
 
-      WRITE(1,*)V_3_2_int_buffer(i5,i4,i3,i2)
+      WRITE(1)V_3_2_int_buffer
       ENDDO
 
       CLOSE(1)
@@ -3484,6 +3490,9 @@ c      V = V*dsqrt((2d0*l_t+1)/4d0/pi)
       INTEGER :: i_nr_ini   
       REAL*8 CG,delta,W3JS,	M_coulp,CG_HF,sign_v  
 	  real*8 bk_xn,bk_z,bk_dq1
+!	  real*8 tmp_bk_mat(4), tmp_bk_mat1(4)
+	  integer bk_par1, bk_par2, sign_correction
+!	  character (len = 1) psign1, psign2, psign3, psign4
       EXTERNAL CG,delta,W3JS,TRIANG_RULE,KRONEKER,CG_HF,round,sign_v
       term_limit_user = nterms	  
       M_coulp = 0d0
@@ -4497,7 +4506,7 @@ c      IF(myid.eq.0) PRINT*, "COULPING", M_coulp
       ENDDO	  
       CASE(0)
 !!!!!!! STILL NOT CORRECT	  
-      CALL ASYM_TOP_VECTORS 	  
+      CALL ASYM_TOP_VECTORS 
       channp = indx_chann(stp)
       channpp = indx_chann(stpp)	  
 !      PRINT*, "CHANNP=",	channp, stp
@@ -4514,7 +4523,7 @@ c      IF(myid.eq.0) PRINT*, "COULPING", M_coulp
 !      PRINT*, j1_p_t,j2_p_t,j1_pp_t,j2_pp_t	  
       DO i=1,nterms
       ind_t =i! index_term_in_file(i)
-      exp_coeff_int=expansion_terms(i_r_point,ind_t)	  
+      exp_coeff_int=expansion_terms(i_r_point,ind_t)	 
       l1_t= A_TOP(1,ind_t)
       nju1_t = A_TOP(2,ind_t)
       l2_t = A_TOP(3,ind_t)
@@ -4523,19 +4532,19 @@ c      IF(myid.eq.0) PRINT*, "COULPING", M_coulp
 !      IF(l1_t.ne.3 .and. l1_t.ne.0 ) CYCLE
 !      IF(l2_t.ne.0) CYCLE
 ! HERE IS THE MISTAKE
-      DO symmetry_coeff=1,2-KRONEKER(l1_t,l2_t)*KRONEKER(nju1_t,nju2_t)
+      DO symmetry_coeff=1,1!2-2KRONEKER(l1_t,l2_t)*KRONEKER(nju1_t,nju2_t)
       IF(.not.identical_particles_defined) THEN
       IF(symmetry_coeff.gt.1) CYCLE	  
       ENDIF 	  
       DO planr_coeff =1,2-KRONEKER(nju1_t,0)*KRONEKER(nju2_t,0)	  
-      IF(symmetry_coeff.eq.2) THEN
-      exp_coeff_int=expansion_terms(i_r_point,ind_t)*(-1)**(l1_t+l2_t)	  
-      l2_t= A_TOP(1,ind_t)
-      nju2_t = A_TOP(2,ind_t)
-      l1_t = A_TOP(3,ind_t)
-      nju1_t = A_TOP(4,ind_t)
-      l_t = A_TOP(5,ind_t)	  
-      ENDIF
+!      IF(symmetry_coeff.eq.2) THEN
+!      exp_coeff_int=expansion_terms(i_r_point,ind_t)*(-1)**(l1_t+l2_t)	  
+!      l2_t= A_TOP(1,ind_t)
+!      nju2_t = A_TOP(2,ind_t)
+!      l1_t = A_TOP(3,ind_t)
+!      nju1_t = A_TOP(4,ind_t)
+!      l_t = A_TOP(5,ind_t)	  
+!      ENDIF
       IF(planr_coeff.eq.2) THEN
       exp_coeff_int=exp_coeff_int*(-1)**(l1_t+l2_t+l_t+nju1_t+nju2_t)	  
       nju1_t = -nju1_t
@@ -4545,21 +4554,21 @@ c      IF(myid.eq.0) PRINT*, "COULPING", M_coulp
       TERM_MATRIX_ELEMENT(symmetry_coeff,planr_coeff,1,ind_t) = 0d0	  
       DO mp = -j1_p_t,j1_p_t
       IF(abs(m12_t-mp).gt.j2_p_t) CYCLE	  
-      CG_j1_j2_p = CG(j1_p_t,j2_p_t,j12_p_t,mp,m12_t-mp,m12_t)	  
-      DO m_exp = -min(l1_t,l2_t),min(l1_t,l2_t)
+      CG_j1_j2_p = CG(j1_p_t,j2_p_t,j12_p_t,mp,m12_t-mp,m12_t)	  				!CG-coef #1 from the CG-coef in last eqn from Appendix B of Semenov et al article on H2O+H2O
+	  DO m_exp = -min(l1_t,l2_t),min(l1_t,l2_t)
       mpp = mp - m_exp
       IF(abs(mpp).gt.j1_pp_t) CYCLE
       IF(abs(m12_t-mpp).gt.j2_pp_t) CYCLE
       IF(.NOT.TRIANG_RULE(j1_pp_t,l1_t,j1_p_t)) CYCLE
-      IF(.NOT.TRIANG_RULE(j2_pp_t,l2_t,j2_p_t)) CYCLE	  
-      CG_j1_j2_pp = CG(j1_pp_t,j2_pp_t,j12_pp_t,mpp,m12_t-mpp,m12_t)
-      CG_l1_l2 = CG(l1_t,l2_t,l_t,m_exp,-m_exp,0)
-      CG_j1_l1 = CG(j1_pp_t,l1_t,j1_p_t,mpp,m_exp,mp)
-      CG_j2_l2 = CG(j2_pp_t,l2_t,j2_p_t,m12_t-mpp,-m_exp,m12_t-mp)	  
-      DO k1p = -j1_p_t,j1_p_t
-      k1pp = k1p - nju1_t
-      IF(abs(k1pp).gt.j1_pp_t) CYCLE	  
-      CG_j1_k1 = CG(j1_pp_t,l1_t,j1_p_t,k1pp,nju1_t,k1p)	  
+      IF(.NOT.TRIANG_RULE(j2_pp_t,l2_t,j2_p_t)) CYCLE
+      CG_j1_j2_pp = CG(j1_pp_t,j2_pp_t,j12_pp_t,mpp,m12_t-mpp,m12_t)			!CG-coef #2 from the CG-coef in last eqn from Appendix B of Semenov et al article on H2O+H2O
+      CG_l1_l2 = CG(l1_t,l2_t,l_t,m_exp,-m_exp,0)								!CG-coef #5 from the CG-coef in last eqn from Appendix B of Semenov et al article on H2O+H2O
+      CG_j1_l1 = CG(j1_pp_t,l1_t,j1_p_t,mpp,m_exp,mp)							!CG-coef #6 from the CG-coef in last eqn from Appendix B of Semenov et al article on H2O+H2O
+      CG_j2_l2 = CG(j2_pp_t,l2_t,j2_p_t,m12_t-mpp,-m_exp,m12_t-mp)	  			!CG-coef #7 from the CG-coef in last eqn from Appendix B of Semenov et al article on H2O+H2O
+	  DO k1p = -j1_p_t,j1_p_t
+      k1pp = k1p - nju1_t	  
+      IF(abs(k1pp).gt.j1_pp_t) CYCLE	 	  
+      CG_j1_k1 = CG(j1_pp_t,l1_t,j1_p_t,k1pp,nju1_t,k1p)	  					!CG-coef #3 from the CG-coef in last eqn from Appendix B of Semenov et al article on H2O+H2O
       coeff_1_p = M1_VECTORS(channp,j1_p_t+1+k1p)
       IF(abs(k1pp).le.j1_pp_t) THEN
       coeff_1_pp = M1_VECTORS(channpp,j1_pp_t+1+k1pp)
@@ -4570,7 +4579,7 @@ c      IF(myid.eq.0) PRINT*, "COULPING", M_coulp
       k2pp = k2p - nju2_t
       IF(abs(k2pp).gt.j2_pp_t) CYCLE	  
       coeff_2_p = M2_VECTORS(channp,j2_p_t+1+k2p)
-      CG_j2_k2 = CG(j2_pp_t,l2_t,j2_p_t,k2pp,nju2_t,k2p)	  
+      CG_j2_k2 = CG(j2_pp_t,l2_t,j2_p_t,k2pp,nju2_t,k2p)	  					!CG-coef #4 from the CG-coef in last eqn from Appendix B of Semenov et al article on H2O+H2O
       IF(abs(k2pp).le.j2_pp_t) THEN
       coeff_2_pp = M2_VECTORS(channpp,j2_pp_t+1+k2pp)
       ELSE
@@ -4589,6 +4598,7 @@ c      IF(myid.eq.0) PRINT*, "COULPING", M_coulp
      & CG_j2_l2*
      & CG_j2_k2*
      & coeff_1_p*coeff_2_p*coeff_1_pp*coeff_2_pp
+
       ENDDO	  
       ENDDO	  
       ENDDO	  
@@ -4601,19 +4611,20 @@ c      IF(myid.eq.0) PRINT*, "COULPING", M_coulp
       ENDDO
       ENDDO	  
       ENDDO	  
-      M_coulp_non_ident = M_coulp
+      M_coulp_non_ident = M_coulp	  
 	  
-!	  if(m12_t.eq.0 .and. R_COM(i_r_point).eq.4.d0)
-!     & write(*,'(a,2x,i0,2x,i0,2x,i0,i0,i0,i0,i0,i0,a,i0,2x,
-!     & i0,i0,i0,i0,i0,i0,a,i0,2x,e19.12)')'ni',stp, 
-!     & stpp, j1_ch(channp), ka1_ch(channp), kc1_ch(channp), 
-!     & j2_ch(channp), ka2_ch(channp), kc2_ch(channp), '_', 
-!     & j12_p_t, j1_ch(channpp), ka1_ch(channpp), kc1_ch(channpp), 
-!     & j2_ch(channpp), ka2_ch(channpp), kc2_ch(channpp), '_',
-!     & j12_pp_t, M_coulp_non_ident
-	 
-      IF(identical_particles_defined) THEN
+      IF(identical_particles_defined) THEN	  
 
+! Bikram Start:
+	  bk_par1 = parity_state_bk(stp)
+	  bk_par2 = parity_state_bk(stpp)
+	  if(stp.eq.stpp .and. j1_ch(channp).eq.j2_ch(channp) .and.
+     & ka1_ch(channp).eq.ka2_ch(channp) .and. 
+     & kc1_ch(channp).eq.kc2_ch(channp)) then
+      bk_par1 = bk_par1*((-1)**j12(stp))
+      bk_par2 = bk_par2*((-1)**j12(stpp))
+	  end if
+! Bikram End.
       par_p = parity_state(stp)
       par_pp = parity_state(stpp)
       j12_p_t = j12(stp)	  
@@ -4624,7 +4635,30 @@ c      IF(myid.eq.0) PRINT*, "COULPING", M_coulp
       j1_pp_t = j1_ch(channpp)
       j2_pp_t = j2_ch(channpp)	  
 	  
-
+!	  if(m12_t.eq.0 .and. R_COM(i_r_point).eq.4.d0)
+!     & write(*,'(4(i0,1x))')parity_state(stp), parity_state(stpp), 
+!     & parity_inversion(channp), parity_inversion(channpp)
+!	  if(m12_t.eq.0 .and. R_COM(i_r_point).eq.4.d0)
+!     & write(*,'(a,2x,2(i0,2x),6(i0),a,i0,2x,
+!     & 6(i0),a,i0,2(2x,i0),2(2x,e19.12))')'ni',stp, 
+!     & stpp, j1_ch(channp), ka1_ch(channp), kc1_ch(channp), 
+!     & j2_ch(channp), ka2_ch(channp), kc2_ch(channp), '_', 
+!     & j12_p_t, j1_ch(channpp), ka1_ch(channpp), kc1_ch(channpp), 
+!     & j2_ch(channpp), ka2_ch(channpp), kc2_ch(channpp), '_',
+!     & j12_pp_t, channp, channpp, M_coulp_non_ident, M_coulp
+!	  if(m12_t.eq.0 .and. R_COM(i_r_point).eq.4.d0 .and. 
+!     & stp.eq.1  .and. stpp.eq.1) write(*,'(10(a5,1x))')'st1', 'st2',
+!     &  'p', 'pp', 'j12', 'j12p', 'invp', 'invpp', 'bkp', 'bkpp'
+!	  if(m12_t.eq.0 .and. R_COM(i_r_point).eq.4.d0)
+!     & write(*,'(10(i5,1x))')stp, stpp, par_p, par_pp, j12_p_t, 
+!     & j12_pp_t, parity_inversion(channp), parity_inversion(channpp), 
+!     & parity_state_bk(stp), parity_state_bk(stpp)
+!	  if(m12_t.eq.0 .and.
+!     & R_COM(i_r_point).eq.4.d0) write(*,'(a12,12x,i0,a,i0,6x,i0,a,i0)', 
+!     & advance='no') 'R_COM', j1_p_t,'_',j2_p_t, j1_pp_t, '_', j2_pp_t
+!	  if(m12_t.eq.0) tmp_bk_mat(1) = M_coulp
+!	  if(m12_t.eq.0) tmp_bk_mat1(1) = M_coulp
+	 
 
       DO i=1,nterms
       ind_t =i! index_term_in_file(i)	  
@@ -4633,7 +4667,7 @@ c      IF(myid.eq.0) PRINT*, "COULPING", M_coulp
       l2_t = A_TOP(3,ind_t)
       nju2_t = A_TOP(4,ind_t)
       l_t = A_TOP(5,ind_t)
-      DO symmetry_coeff=1,2-KRONEKER(l1_t,l2_t)*KRONEKER(nju1_t,nju2_t)
+      DO symmetry_coeff=1,1!2-KRONEKER(l1_t,l2_t)*KRONEKER(nju1_t,nju2_t)
       DO planr_coeff =1,2-KRONEKER(nju1_t,0)*KRONEKER(nju2_t,0)
       exp_coeff_int=expansion_terms(i_r_point,ind_t)	  
       IF(symmetry_coeff.eq.2) THEN
@@ -4703,26 +4737,37 @@ c      IF(myid.eq.0) PRINT*, "COULPING", M_coulp
       ENDDO
       ENDIF
       matrix_exp_coefficent = 
-     & TERM_MATRIX_ELEMENT(symmetry_coeff,1,2,ind_t)
-!     & TERM_MATRIX_ELEMENT(symmetry_coeff,planr_coeff,2,ind_t)
+!     & TERM_MATRIX_ELEMENT(symmetry_coeff,1,2,ind_t)
+     & TERM_MATRIX_ELEMENT(symmetry_coeff,planr_coeff,2,ind_t)
       M_coulp_ident = M_coulp_ident +
      & exp_coeff_int*matrix_exp_coefficent		  
       ENDDO
       ENDDO
       ENDDO	  
       M_coulp_ident_1 = M_coulp_ident
+!
+!      M_coulp = M_coulp + M_coulp_ident*
+!     ^ (-1)**(j12_p_t)*par_p*parity_inversion(channp)
+!
+      M_coulp = M_coulp + M_coulp_ident*par_p
+     & *bk_par1!*parity_state_sign_bk(stp)
 	  
 !	  if(m12_t.eq.0 .and. R_COM(i_r_point).eq.4.d0)
-!     & write(*,'(a,2x,i0,2x,i0,2x,i0,i0,i0,i0,i0,i0,a,i0,2x,
-!     & i0,i0,i0,i0,i0,i0,a,i0,2x,e19.12,2x,i0,2x,i0)')'i1',stp, 
-!     & stpp, j1_ch(channp), ka1_ch(channp), kc1_ch(channp), 
-!     & j2_ch(channp), ka2_ch(channp), kc2_ch(channp), '_', 
+!     & write(*,'(a,2x,2(i0,2x),6(i0),a,i0,2x,
+!     & 6(i0),a,i0,2(2x,i0),2(2x,e19.12))')'i1',stp, 
+!     & stpp, j2_ch(channp), ka2_ch(channp), kc2_ch(channp),
+!     & j1_ch(channp), ka1_ch(channp), kc1_ch(channp), '_', 
 !     & j12_p_t, j1_ch(channpp), ka1_ch(channpp), kc1_ch(channpp), 
 !     & j2_ch(channpp), ka2_ch(channpp), kc2_ch(channpp), '_',
-!     & j12_pp_t, M_coulp_ident_1, par_p, par_pp
-	 
-      M_coulp = M_coulp + M_coulp_ident*
-     ^ (-1)**(j12_p_t)*par_p*parity_inversion(channp)
+!     & j12_pp_t, channp, channpp, M_coulp_ident, M_coulp
+!	  if(m12_t.eq.0 .and.
+!     & R_COM(i_r_point).eq.4.d0) write(*,'(2(12x,i0,a,i0))', 
+!     & advance='no') j1_p_t,'_',j2_p_t, j1_pp_t, '_', j2_pp_t
+!	  if(m12_t.eq.0) tmp_bk_mat(2) = M_coulp_ident
+!	  if(m12_t.eq.0) tmp_bk_mat1(2) = M_coulp
+!	  if(m12_t.eq.0) tmp_bk_mat1(2) = M_coulp_ident*par_p
+!     & *bk_par1!*parity_state_sign_bk(stp)
+	  
       M_coulp_ident = 0d0
       j1_p_t = j1_ch(channp)
       j2_p_t = j2_ch(channp)
@@ -4743,7 +4788,7 @@ c      IF(myid.eq.0) PRINT*, "COULPING", M_coulp
       l2_t = A_TOP(3,ind_t)
       nju2_t = A_TOP(4,ind_t)
       l_t = A_TOP(5,ind_t)
-      DO symmetry_coeff=1,2-KRONEKER(l1_t,l2_t)*KRONEKER(nju1_t,nju2_t)
+      DO symmetry_coeff=1,1!2-KRONEKER(l1_t,l2_t)*KRONEKER(nju1_t,nju2_t)
       DO planr_coeff =1,2-KRONEKER(nju1_t,0)*KRONEKER(nju2_t,0)	  
       exp_coeff_int=expansion_terms(i_r_point,ind_t)	  
       IF(symmetry_coeff.eq.2) THEN
@@ -4823,17 +4868,35 @@ c      IF(myid.eq.0) PRINT*, "COULPING", M_coulp
       ENDDO	  
       M_coulp_ident_2 = M_coulp_ident 
 	  
+! Bikram Start 2021:
+!      M_coulp = M_coulp + M_coulp_ident*
+!     ^ (-1)**j12_pp_t*par_pp*parity_inversion(channpp)
+!
+      sign_correction = +1
+	  if(bk_par1*bk_par2.lt.0.d0) then
+	  if(M_coulp_ident_1*M_coulp_ident_2.gt.0.d0) sign_correction = -1
+	  else if(bk_par1*bk_par2.gt.0.d0) then
+	  if(M_coulp_ident_1*M_coulp_ident_2.lt.0.d0) sign_correction = -1
+	  end if
+	  M_coulp = M_coulp + M_coulp_ident*par_pp
+     & *bk_par2*sign_correction!*parity_state_sign_bk(stpp)
+! Bikram End.
+	  
 !	  if(m12_t.eq.0 .and. R_COM(i_r_point).eq.4.d0)
-!     & write(*,'(a,2x,i0,2x,i0,2x,i0,i0,i0,i0,i0,i0,a,i0,2x,
-!     & i0,i0,i0,i0,i0,i0,a,i0,2x,e19.12,2x,i0,2x,i0)')'i2',stp, 
+!     & write(*,'(a,2x,2(i0,2x),6(i0),a,i0,2x,
+!     & 6(i0),a,i0,2(2x,i0),2(2x,e19.12))')'i2',stp, 
 !     & stpp, j1_ch(channp), ka1_ch(channp), kc1_ch(channp), 
 !     & j2_ch(channp), ka2_ch(channp), kc2_ch(channp), '_', 
-!     & j12_p_t, j1_ch(channpp), ka1_ch(channpp), kc1_ch(channpp), 
-!     & j2_ch(channpp), ka2_ch(channpp), kc2_ch(channpp), '_',
-!     & j12_pp_t, M_coulp_ident_2, par_p, par_pp
-	 
-      M_coulp = M_coulp + M_coulp_ident*
-     ^ (-1)**j12_pp_t*par_pp*parity_inversion(channpp)
+!     & j12_p_t, j2_ch(channpp), ka2_ch(channpp), kc2_ch(channpp),
+!     & j1_ch(channpp), ka1_ch(channpp), kc1_ch(channpp),  '_',
+!     & j12_pp_t, channp, channpp, M_coulp_ident, M_coulp
+!	  if(m12_t.eq.0 .and.
+!     & R_COM(i_r_point).eq.4.d0) write(*,'(2(12x,i0,a,i0))', 
+!     & advance='no') j1_p_t,'_',j2_p_t, j1_pp_t, '_', j2_pp_t
+!	  if(m12_t.eq.0) tmp_bk_mat(3) = M_coulp_ident
+!	  if(m12_t.eq.0) tmp_bk_mat1(3) = M_coulp
+!	  if(m12_t.eq.0) tmp_bk_mat1(3) = M_coulp_ident*par_pp
+!     & *bk_par2*sign_correction!*parity_state_sign_bk(stpp)
 
       M_coulp_ident = 0d0
       buff = 0d0	  
@@ -4841,34 +4904,32 @@ c      IF(myid.eq.0) PRINT*, "COULPING", M_coulp
       j2_p_t = j1_ch(channp)
       j1_pp_t = j2_ch(channpp)
       j2_pp_t = j1_ch(channpp)	  
-	  
-
 
       DO i=1,nterms
       ind_t =i! index_term_in_file(i)	  
+	  exp_coeff_int=expansion_terms(i_r_point,ind_t)	  
       l1_t= A_TOP(1,ind_t)
       nju1_t = A_TOP(2,ind_t)
       l2_t = A_TOP(3,ind_t)
       nju2_t = A_TOP(4,ind_t)
       l_t = A_TOP(5,ind_t)
-      DO symmetry_coeff=1,2-KRONEKER(l1_t,l2_t)*KRONEKER(nju1_t,nju2_t)
+      DO symmetry_coeff=1,1!2-KRONEKER(l1_t,l2_t)*KRONEKER(nju1_t,nju2_t)
       DO planr_coeff =1,2-KRONEKER(nju1_t,0)*KRONEKER(nju2_t,0)	  
-      exp_coeff_int=expansion_terms(i_r_point,ind_t)	  
-      IF(symmetry_coeff.eq.2) THEN
+!      IF(symmetry_coeff.eq.2) THEN
 !      exp_coeff_int=exp_coeff_int*(-1)**(l1_t+l2_t)	  
-      exp_coeff_int=expansion_terms(i_r_point,ind_t)*(-1)**(l1_t+l2_t)	  
-      l2_t= A_TOP(1,ind_t)
-      nju2_t = A_TOP(2,ind_t)
-      l1_t = A_TOP(3,ind_t)
-      nju1_t = A_TOP(4,ind_t)
-      l_t = A_TOP(5,ind_t)	  
-      ENDIF
+!      exp_coeff_int=expansion_terms(i_r_point,ind_t)*(-1)**(l1_t+l2_t)	  
+!      l2_t= A_TOP(1,ind_t)
+!      nju2_t = A_TOP(2,ind_t)
+!      l1_t = A_TOP(3,ind_t)
+!      nju1_t = A_TOP(4,ind_t)
+!      l_t = A_TOP(5,ind_t)	  
+!      ENDIF
       IF(planr_coeff.eq.2) THEN
       exp_coeff_int=exp_coeff_int*(-1)**(l1_t+l2_t+l_t+nju1_t+nju2_t)	  
       nju1_t = -nju1_t
       nju2_t = -nju2_t	  
       ENDIF		  
-       IF(i_r_point.eq.i_nr_ini) THEN
+      IF(i_r_point.eq.i_nr_ini) THEN
       TERM_MATRIX_ELEMENT(symmetry_coeff,planr_coeff,4,ind_t) = 0d0	  
       DO mp = -j1_p_t,j1_p_t
       IF(abs(m12_t-mp).gt.j2_p_t) CYCLE		  
@@ -4922,38 +4983,86 @@ c      IF(myid.eq.0) PRINT*, "COULPING", M_coulp
       ENDDO
       ENDIF
       matrix_exp_coefficent = 
-     & TERM_MATRIX_ELEMENT(symmetry_coeff,1,4,ind_t) 
-!     & TERM_MATRIX_ELEMENT(symmetry_coeff,planr_coeff,4,ind_t)
+!     & TERM_MATRIX_ELEMENT(symmetry_coeff,1,4,ind_t) 
+     & TERM_MATRIX_ELEMENT(symmetry_coeff,planr_coeff,4,ind_t)
       M_coulp_ident = M_coulp_ident +
      & exp_coeff_int*matrix_exp_coefficent	  
       ENDDO	  
       ENDDO
       ENDDO	  
       M_coulp_ident_3 = M_coulp_ident
-	  
-!	  if(m12_t.eq.0 .and. R_COM(i_r_point).eq.4.d0)
-!     & write(*,'(a,2x,i0,2x,i0,2x,i0,i0,i0,i0,i0,i0,a,i0,2x,
-!     & i0,i0,i0,i0,i0,i0,a,i0,2x,e19.12,2x,i0,2x,i0)')'i3',stp, 
-!     & stpp, j1_ch(channp), ka1_ch(channp), kc1_ch(channp), 
-!     & j2_ch(channp), ka2_ch(channp), kc2_ch(channp), '_', 
-!     & j12_p_t, j1_ch(channpp), ka1_ch(channpp), kc1_ch(channpp), 
-!     & j2_ch(channpp), ka2_ch(channpp), kc2_ch(channpp), '_',
-!     & j12_pp_t, M_coulp_ident_3, par_p, par_pp
-	 
 
-      M_coulp = M_coulp + M_coulp_ident*
-     ^ (-1)**j12_pp_t*par_pp*par_p*
-     & (-1)**j12_p_t*parity_inversion(channp)*
-     & parity_inversion(channpp)
+!      M_coulp = M_coulp + M_coulp_ident*
+!     ^ (-1)**j12_pp_t*par_pp*par_p*
+!     & (-1)**j12_p_t*parity_inversion(channp)*
+!     & parity_inversion(channpp)      
+	  sign_correction = +1
+	  if(bk_par1*bk_par2.lt.0.d0) then
+	  if(M_coulp_ident_3*M_coulp_non_ident.gt.0.d0) sign_correction = -1
+	  else if(bk_par1*bk_par2.gt.0.d0) then
+	  if(M_coulp_ident_3*M_coulp_non_ident.lt.0.d0) sign_correction = -1
+	  end if
+	  M_coulp = M_coulp + M_coulp_ident*par_pp*par_p
+     & *bk_par1*bk_par2*sign_correction
+!     & *parity_state_sign_bk(stp)*parity_state_sign_bk(stpp)
+
+!	  if(m12_t.eq.0) tmp_bk_mat(4) = M_coulp_ident
+!	  if(m12_t.eq.0) tmp_bk_mat1(4) = M_coulp
+!	  if(m12_t.eq.0) tmp_bk_mat1(4) = M_coulp_ident*par_pp*par_p
+!     & *bk_par1*bk_par2*sign_correction
+!     & *parity_state_sign_bk(stp)*parity_state_sign_bk(stpp)
 
       M_coulp = M_coulp/
      & dsqrt(2d0*(1d0+delta(j1_p_t,j2_p_t)))
      & /dsqrt(2d0*(1d0+delta(j1_pp_t,j2_pp_t)))
+!	  if(par_p.gt.0d0) then 
+!	  psign1 = '+'
+!	  else if(par_p.lt.0d0) then 
+!	  psign1 = '-'
+!	  else
+!	  print *, 'something is wrong in par_p'
+!	  end if
+!	  if(par_pp.gt.0d0) then 
+!	  psign2 = '+'
+!	  else if(par_pp.lt.0d0) then 
+!	  psign2 = '-'
+!	  else
+!	  print *, 'something is wrong in par_pp'
+!	  end if
+!	  if(bk_par1.gt.0d0) then 
+!	  psign3 = '+'
+!	  else if(bk_par1.lt.0d0) then 
+!	  psign3 = '-'
+!	  else
+!	  print *, 'something is wrong in bk_par1'
+!	  end if
+!	  if(bk_par2.gt.0d0) then 
+!	  psign4 = '+'
+!	  else if(bk_par2.lt.0d0) then 
+!	  psign4 = '-'
+!	  else
+!	  print *, 'something is wrong in bk_par2'
+!	  end if
+!	  if(m12_t.eq.0 .and. i_r_point.eq.1)
+!     & write(*,'(2(6(i0),a,i0,a,a,2x),i0,9(1x,e19.12))')
+!     & j1_ch(channp), ka1_ch(channp), kc1_ch(channp),
+!     & j2_ch(channp), ka2_ch(channp), kc2_ch(channp), '_', j12_p_t, 
+!     & psign1,psign3,j1_ch(channpp),ka1_ch(channpp),kc1_ch(channpp),
+!     & j2_ch(channpp), ka2_ch(channpp), kc2_ch(channpp),  '_', 
+!     & j12_pp_t, psign2, psign4, m12_t, M_coulp, tmp_bk_mat(1), 
+!     & tmp_bk_mat(2), tmp_bk_mat(3), tmp_bk_mat(4), tmp_bk_mat1(1), 
+!     & tmp_bk_mat1(2), tmp_bk_mat1(3), tmp_bk_mat1(4)
+!	  if(m12_t.eq.0 .and.
+!     & R_COM(i_r_point).eq.4.d0) write(*,'(2(12x,i0,a,i0))', 
+!     & advance='no') j1_p_t,'_',j2_p_t, j1_pp_t, '_', j2_pp_t
+!	  if(m12_t.eq.0 .and.
+!     & R_COM(i_r_point).eq.4.d0) write(*,*)
+!	  if(m12_t.eq.0 .and. i_r_point.eq.1) 
+!     & write(*,'(f12.5,8(1x,e19.12))')R_COM(i_r_point), tmp_bk_mat(1), 
+!     & tmp_bk_mat(2), tmp_bk_mat(3), tmp_bk_mat(4), tmp_bk_mat1(1), 
+!     & tmp_bk_mat1(2), tmp_bk_mat1(3), tmp_bk_mat1(4)
    	  
-      ENDIF	  
-	  
-	  
-	  
+      ENDIF	 	  
 	  
       END SELECT 	  
       END SUBROUTINE EXPANSION_MATRIX_ELEMENT
