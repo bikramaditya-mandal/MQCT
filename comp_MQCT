@@ -1,3 +1,0 @@
-ftn -c -g -traceback ./MQCT_v20_21/head.f;
-mv head.o ./MQCT_v20_21/head.o;
-mv *.mod ./MQCT_v20_21/;
