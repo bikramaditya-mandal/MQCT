@@ -2328,10 +2328,8 @@ c     STOP
 !      CALL MPI_BCAST(Mat_el_der, n_r_coll*total_size, MPI_REAL8,0,
 !     &  MPI_COMM_WORLD,ierr_mpi)
 !      CALL MPI_BCAST(R_COM, n_r_coll, MPI_REAL8,0,
-!     &  MPI_COMM_WORLD,ierr_mpi)
-	  
-!	  end if
-	  
+!     &  MPI_COMM_WORLD,ierr_mpi)	  
+!	  end if	  
 !	  else
 	  
 	  IF(myid.eq.0) PRINT*,"MPI TASK PER TRAJECTORY WILL BE USED"
@@ -2530,6 +2528,8 @@ c     STOP
 !      ENDIF	 
 !      ENDIF
 	  
+!	  if(myid.eq.0) call bk_matrix_splitting
+!	  call MPI_BARRIER( MPI_COMM_WORLD, ierr_mpi )
 	  
 	  allocate(K_SKIPPED_BY_ROUTINE(total_size_mpi))
 	  K_SKIPPED_BY_ROUTINE = .false.
@@ -3990,12 +3990,12 @@ c      PRINT*,st_1,st_2,intgeral
       DO i=1,n_r_coll
       WRITE(1,'(i5,1x,e19.12)')i,R_COM(i)	  
       ENDDO
-      WRITE(1,'(a16,1x,a3,1x,a19)') "#k_matel","#iR",
+      WRITE(1,'(a16,1x,a8,1x,a19)') "#k_matel","#iR",
      & "Mij(iR,k_matel)"!,
 !     & "Mij_der(iR,k_matel)"	  
       DO k=1,total_size
       DO i=1,n_r_coll	  
-      WRITE(1,'(i16,1x,i3,1x,e19.12)')k,i,Mat_el(i,k)!,
+      WRITE(1,'(i16,1x,i8,1x,e19.12)')k,i,Mat_el(i,k)!,
 !     & Mat_el_der(i,k)	  
       ENDDO
       ENDDO
@@ -6128,21 +6128,109 @@ c     & "j1",j1_ch(i),"j2",j2_ch(i),"lc",l_count,"pc",p_count
       USE MPI	  
       USE MPI_DATA
       IMPLICIT NONE
-      INTEGER st, ii, iii, bk_nn, bk_nnn, bk_st, bk_fn
+      INTEGER st, ii, iii, bk_nn, bk_nnn, bk_st, bk_fn, jj, jjj
+	  integer file_counter, file_nmb, file_io, file_nmb1, file_nmb2
+	  integer dm1, dm2, dm3, st_store
+	  real*8 dm4
+	  integer, allocatable :: file_nmb_bgn(:), file_nmb_end(:)
 	  real*8 bk_mat_array(n_r_coll, bk_nn)
 	  character(len = *),parameter :: bk_dir = 'MATRIX_FILES'
 	  character (len=100) :: bk_dir_temp_1,bk_dir_temp_2
 	  
-	  write(bk_dir_temp_1, '(a,a,i0,a,i0,a,i0,a)') bk_dir, '/Proc_',
-     & myid, '/MTRX_', bk_st,'_',bk_fn,'.DAT'
+	  write(bk_dir_temp_1, '(a,a,i0,a,i0,a,i0,a)') bk_dir, 
+     & '/MATRIX_FILES_NUMBER.DAT'
 	  bk_dir_temp_2 = trim(bk_dir_temp_1)
-	  OPEN(1,FILE=bk_dir_temp_2,ACTION="read")
+	  file_counter = 0
+	  open(1,file = bk_dir_temp_2, action = 'read')
+	  do
+	  read(1,*,iostat=file_io)
+	  if(file_io/=0) then
+	  exit
+	  else
+	  file_counter = file_counter + 1
+	  end if
+	  end do
+	  close(1)
+	  allocate(file_nmb_bgn(file_counter),file_nmb_end(file_counter))
 	  
-	  do st = 1, bk_nn
+	  open(1,file = bk_dir_temp_2, action = 'read')
+	  do ii = 1, file_counter
+	  read(1,*)file_nmb_bgn(ii),file_nmb_end(ii) 
+	  end do
+	  close(1)
+	  
+	  do ii = 1, file_counter
+	  if(bk_st.ge.file_nmb_bgn(ii) .and. bk_st.lt.file_nmb_end(ii)) then
+      file_nmb1 = ii
+	  exit
+	  end if
+	  end do
+	  do ii = 1, file_counter
+	  if(bk_fn.gt.file_nmb_bgn(ii) .and. bk_fn.le.file_nmb_end(ii)) then
+      file_nmb2 = ii
+	  exit
+	  end if
+	  end do
+!	  write(*,'(a,5(2x,i0))') 'bgn_end', myid, bk_st, bk_fn,
+!     & file_nmb1, file_nmb2
+	  file_nmb = file_nmb2 - file_nmb1 + 1
+	  
+	  do jj = 1, file_nmb
+	  write(bk_dir_temp_1, '(a,a,i0,a,i0,a)') bk_dir,
+     & '/MIJ_', file_nmb_bgn(jj - 1 + file_nmb1),'_',
+     & file_nmb_end(jj - 1 + file_nmb1),'.DAT'
+	  bk_dir_temp_2 = trim(bk_dir_temp_1)
+	  
+	  if(jj.eq.1) then
+	  OPEN(1,FILE=bk_dir_temp_2,ACTION="read")
+	  dm1 = 0
+	  do
+	  read(1,'(i8,1x,i4,1x,e19.12)') dm2, dm3, dm4
+	  if(dm2.eq.bk_st .and. dm3.eq.1) then
+	  exit
+	  else
+	  dm1 = dm1 + 1
+	  end if
+	  end do
+	  close(1)
+	  
+	  OPEN(1,FILE=bk_dir_temp_2,ACTION="read")
+	  if(dm1.gt.0) then
+	  do jjj = 1, dm1
+	  read(1,'(i8,1x,i4,1x,e19.12)') dm2, dm3, dm4
+	  if(dm2.eq.bk_st .and. dm3.eq.1) then
+	  write(*,'(a,a,2(2x,i0))') 
+     & "Something is wrong in Matrix reading in file ",
+     & bk_dir_temp_2, bk_st, bk_fn
+	  end if
+	  end do
+	  end if
+	  
+	  do st = 1, min0(bk_nn, (file_nmb_end(jj - 1 + file_nmb1) 
+     & - bk_st +1))
       do ii=1,n_r_coll	  
-      read(1,'(i8,1x,i3,1x,e19.12)')bk_nnn,iii,bk_mat_array(ii, st)
+      read(1,'(i8,1x,i4,1x,e19.12)')bk_nnn,iii,bk_mat_array(ii, st)
+	  end do	  
+	  end do
+      CLOSE(1)
+	  st_store = st
+	  print*, myid, jj, st_store
+	  else
+	  OPEN(1,FILE=bk_dir_temp_2,ACTION="read")
+	  do st = st_store+1, min0(bk_nn, st_store + 1 + 
+     & file_nmb_end(jj - 1 + file_nmb1) - 
+     & file_nmb_bgn(jj - 1 + file_nmb1) + 1)
+      do ii=1,n_r_coll	  
+      read(1,'(i8,1x,i4,1x,e19.12)')bk_nnn,iii,bk_mat_array(ii, st)
+	  end do
+	  end do
+      CLOSE(1)
+	  st_store = st
+	  print*, myid, jj, st_store
+	  end if
 	  end do
 	  
+	  do st = 1, bk_nn
 	  if(bikram_mij_shift) then
 	  do ii=1,n_r_coll
 	  bk_mat_array(ii, st) = bk_mat_array(ii, st) - 
@@ -6150,7 +6238,7 @@ c     & "j1",j1_ch(i),"j2",j2_ch(i),"lc",l_count,"pc",p_count
 	  enddo
 	  endif
 	  end do
-      CLOSE(1)
+	  
       END SUBROUTINE
 
 	  SUBROUTINE bk_read_matrix_info_formatted
@@ -6206,7 +6294,7 @@ c     & "j1",j1_ch(i),"j2",j2_ch(i),"lc",l_count,"pc",p_count
       READ(1,'(a15,1x,i1)') buffer_word_2,coll_type_old
       IF(coll_type_old.ne.coll_type) THEN
       PRINT*, "ERROR: SYSTEM IS DIFFERENT"
-      CRITICAL_ERROR = .TRUE.	  
+      CRITICAL_ERROR = .TRUE.	
       ENDIF	 
       READ(1,'(a17,x,i4)') buffer_word_3,number_of_channels_old	 
       READ(1,'(a17,1x,i6)') buffer_word_3,states_size_old
@@ -6479,7 +6567,7 @@ c     & "j1",j1_ch(i),"j2",j2_ch(i),"lc",l_count,"pc",p_count
      & ,j2_old_b,ka2_old_b,kc2_old_b,par_old_b	  
       ENDIF	  
       IF(st_old.ne.st) THEN
-      CRITICAL_ERROR = .TRUE.	  
+      CRITICAL_ERROR = .TRUE.	 
       PRINT*, "ERROR: WRONG MIJ FILE"
       RETURN	  
       ENDIF	
@@ -6493,6 +6581,7 @@ c     & "j1",j1_ch(i),"j2",j2_ch(i),"lc",l_count,"pc",p_count
      & parity_states_old(st_old) = par_old_b	  
       ENDDO	 
       END SELECT
+	  
       st = 0    
 !!!! TO BE CONTINUED	  
       DO i=1,min(number_of_channels_old,number_of_channels)
@@ -6732,6 +6821,7 @@ c     & "j1",j1_ch(i),"j2",j2_ch(i),"lc",l_count,"pc",p_count
       ENDIF	   	  
       END SELECT	  
       ENDDO
+	  
 ! HERE WE CHECK THE ORDER !! FOR FINE SPIN=2 WE JUST OVERJUM
       IF(SPIN_FINE.eq.2 .and. fine_structure_defined) GOTO 1994
       DO st=1,min(states_size_old,states_size)
@@ -6741,10 +6831,10 @@ c     & "j1",j1_ch(i),"j2",j2_ch(i),"lc",l_count,"pc",p_count
       RETURN	  
       ENDIF	  
       IF(m12(st).ne.m12_old(st)) THEN
-      CRITICAL_ERROR = .TRUE.	  
+      CRITICAL_ERROR = .TRUE.	
       PRINT*, "ERROR IN INI: CHECK M12"
       RETURN	  
-      ENDIF	  
+      ENDIF	 
       SELECT CASE(coll_type)
       CASE(1)
       IF(j_ch_old(indx_chann_old(st)).ne.j_ch(indx_chann(st))) THEN
@@ -6938,17 +7028,14 @@ c     & "j1",j1_ch(i),"j2",j2_ch(i),"lc",l_count,"pc",p_count
      & .ne.parity_state(st))
      & STOP "ERROR IN INI: CHECK PARITY"
       ENDIF	 
-      END SELECT	  
-	  
-	  
-      ENDDO	 	  
-
+      END SELECT	  	  	  
+      ENDDO	 
 ! HERE WE CHECK THE ORDER	  
 !      PRINT*, "WE HAVE CKECED"	  
 1994      READ(1,*)
 !      PRINT*, buffer_word_3
       DO i=1,total_size_old
-      READ(1,"(i9,1x,i4,1x,i4)") i_old,ind_mat_old_1,ind_mat_old_2
+      READ(1,"(i16,1x,i8,1x,i8)") i_old,ind_mat_old_1,ind_mat_old_2
       IF(i.ne.i_old) CRITICAL_ERROR = .TRUE.
       IF(i.le.total_size) THEN	  
       IF(ind_mat_old_1.ne.ind_mat(1,i)) CRITICAL_ERROR = .TRUE.
@@ -6959,7 +7046,7 @@ c     & "j1",j1_ch(i),"j2",j2_ch(i),"lc",l_count,"pc",p_count
       DO i=1,n_r_coll
       READ(1,'(i5,1x,e19.12)')i_old,R_COM(i)	  
       ENDDO
-	  
+
       END SUBROUTINE
 
 	  SUBROUTINE bk_matrix_combination(mat_size, tot_proc)
