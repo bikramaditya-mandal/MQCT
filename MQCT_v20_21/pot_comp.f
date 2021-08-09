@@ -4998,9 +4998,11 @@ c      IF(myid.eq.0) PRINT*, "COULPING", M_coulp
 !     & parity_inversion(channpp)      
 	  sign_correction = +1
 	  if(bk_par1*bk_par2.lt.0.d0) then
-	  if(M_coulp_ident_3*M_coulp_non_ident.gt.0.d0) sign_correction = -1
+	  if(M_coulp_ident_3*M_coulp_non_ident.gt.0.d0) 
+     & sign_correction = -1
 	  else if(bk_par1*bk_par2.gt.0.d0) then
-	  if(M_coulp_ident_3*M_coulp_non_ident.lt.0.d0) sign_correction = -1
+	  if(M_coulp_ident_3*M_coulp_non_ident.lt.0.d0) 
+     & sign_correction = -1
 	  end if
 	  M_coulp = M_coulp + M_coulp_ident*par_pp*par_p
      & *bk_par1*bk_par2*sign_correction

@@ -1917,7 +1917,8 @@ c      PRINT*,	"dJ_int_range", dJ_int_range
 	  
 	  nnn = 7
 	  allocate(bk_adia_t(bk_adia_n))
-	  allocate(bk_sys_var(bk_adia_n,nnn), bk_sys_var_der(bk_adia_n,nnn))
+	  allocate(bk_sys_var(bk_adia_n,nnn))
+	  allocate(bk_sys_var_der(bk_adia_n,nnn))
 	  allocate(yp1(nnn), ypn(nnn), yprm(nnn))
 
 	  open(100003, file = trim(bk_adia_filepath)//

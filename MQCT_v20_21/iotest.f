@@ -306,13 +306,15 @@ c! VARIABLES
      & j12(:),m12(:),chann_indx(:),indx_chann(:), indx_corr(:,:,:),
      & ind_mat(:,:),parity_state(:),indx_corr_id(:,:,:,:)
      & ,j_max_ind(:),j_min_ind(:),f_ch(:),par_lorb_ch(:)
-	  integer, allocatable :: parity_state_bk(:), parity_state_sign_bk(:)										!Bikram April 2021
+	  integer, allocatable :: parity_state_bk(:)										!Bikram April 2021
+	  integer, allocatable :: parity_state_sign_bk(:)										!Bikram April 2021
 ! Bikram Start Dec 2019:
 	  integer,allocatable :: ind_mat_bk(:,:),bk_indx(:)						
 	  integer mat_sz_bk,ph_cntr_bk,splnt_bfr,splnt_afr												
 	  real*8,allocatable :: misc_bk(:,:),bk_delta_E(:)
 	  real*8,allocatable :: bk_splint_bfr_mat(:),bk_splint_afr_mat(:)
-	  real*8,allocatable :: bk_splint_bfr_dmat(:),bk_splint_afr_dmat(:)
+	  real*8,allocatable :: bk_splint_bfr_dmat(:)
+	  real*8,allocatable :: bk_splint_afr_dmat(:)
 	  real*8,allocatable :: bk_mat_splnt(:,:),bk_dmat_splnt(:,:)
 ! Bikram End. 
       INTEGER p_lim_max,p_lim_min	 
@@ -1584,7 +1586,7 @@ c      STOP "SYSTEM PARSING DONE"
       CHARACTER(LEN = len_inp) basis_inp 
       INTEGER i
       INTEGER posit
-      INTEGER,PARAMETER :: KEY_WORD_NUM = 74
+      INTEGER,PARAMETER :: KEY_WORD_NUM = 76
       INTEGER key_words(KEY_WORD_NUM),key
       posit = 1
 !!!! INI SETUP	  

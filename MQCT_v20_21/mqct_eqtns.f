@@ -130,7 +130,8 @@
 	  integer tmp_indx
 	  REAL*8,allocatable :: bk_mat(:),bk_der_mat(:)
 	  real*8 sqrt1,sqrt2						
-	  real*8,allocatable :: bk_amp_phi(:),bk_amp_theta(:),bk_sin_cos(:,:)			
+	  real*8,allocatable :: bk_amp_phi(:),bk_amp_theta(:)
+	  real*8,allocatable :: bk_sin_cos(:,:)			
 ! Bikram End.
       EXTERNAL delta,BELONGS,round
 	   

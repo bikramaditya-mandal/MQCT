@@ -5883,10 +5883,11 @@ c     & "j1",j1_ch(i),"j2",j2_ch(i),"lc",l_count,"pc",p_count
       IMPLICIT NONE
       INTEGER st,i,k
 	  character(len = *),parameter :: bk_dir = 'MATRIX_FILES'
+	  character(len = *),parameter :: bk_dir11 = './MATRIX_FILES/.'
 	  character (len=100) :: bk_dir_temp_1,bk_dir_temp_2
 	  logical dir_ex
 	  
-	  INQUIRE (DIRECTORY=bk_dir, EXIST=dir_ex)
+	  INQUIRE (file=bk_dir11, EXIST=dir_ex)
 	  if(dir_ex) call system ( "rm -r " // trim(bk_dir) )
       call system ( "mkdir -p " // trim(bk_dir) )
 	  end subroutine
@@ -6160,13 +6161,15 @@ c     & "j1",j1_ch(i),"j2",j2_ch(i),"lc",l_count,"pc",p_count
 	  close(1)
 	  
 	  do ii = 1, file_counter
-	  if(bk_st.ge.file_nmb_bgn(ii) .and. bk_st.lt.file_nmb_end(ii)) then
+	  if(bk_st.ge.file_nmb_bgn(ii) .and. 
+     & bk_st.lt.file_nmb_end(ii)) then
       file_nmb1 = ii
 	  exit
 	  end if
 	  end do
 	  do ii = 1, file_counter
-	  if(bk_fn.gt.file_nmb_bgn(ii) .and. bk_fn.le.file_nmb_end(ii)) then
+	  if(bk_fn.gt.file_nmb_bgn(ii) .and. 
+     & bk_fn.le.file_nmb_end(ii)) then
       file_nmb2 = ii
 	  exit
 	  end if
